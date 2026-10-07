@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SIM-Risiko RSD K.R.M.T Wongsonegoro</title>
+<meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -70,7 +71,7 @@ h3{font-size:15px;margin:0 0 6px;font-weight:700}
 .sub{color:var(--ink-3);font-size:14px;margin-top:4px}
 .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .filters label{font-size:12px;color:var(--ink-3);display:flex;flex-direction:column;gap:2px}
-select,input[type=text],input[type=number],input[type=date],input[type=datetime-local],textarea{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-height:36px;max-width:100%}
+select,input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],input[type=datetime-local],textarea{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-height:36px;max-width:100%}
 textarea{min-height:70px;resize:vertical;width:100%}
 .btn{border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer;font-size:14px;min-height:36px}
 .btn:hover{background:var(--surface)}
@@ -152,6 +153,14 @@ details.g .gb ol,details.g .gb ul{margin:0 0 8px;padding-left:20px;max-width:78c
 .ex{background:var(--surface);border-radius:8px;padding:10px 12px;margin:8px 0;font-size:14px}
 .ex b{color:var(--red-ink)}
 .mobilebar{display:none}
+.login{max-width:420px;margin:8vh auto 0;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:24px 24px 20px;box-shadow:var(--shadow)}
+.login .lb{display:flex;gap:12px;align-items:center;margin-bottom:16px}
+.login .lb img{width:48px}
+.login h1{font-size:22px}
+.login .alt{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:13px}
+.login .alt a{cursor:pointer}
+.login .btn.pri{width:100%;margin-top:6px}
+.app.auth{grid-template-columns:1fr}.app.auth .side{display:none}
 @media (max-width:980px){
   .app{grid-template-columns:1fr}
   .side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}
@@ -178,8 +187,21 @@ details.g .gb ol,details.g .gb ul{margin:0 0 8px;padding-left:20px;max-width:78c
   <main class="main" id="main"><div class="empty"><b>Memuat SIM-Risiko…</b>Menyiapkan data rumah sakit.</div></main>
 </div>
 <dialog id="dlg"><form method="dialog" id="dlgForm" novalidate><div class="mh"><h2 id="dlgTitle"></h2><span class="spacer"></span><button class="btn ghost" value="cancel" aria-label="Tutup">✕</button></div><div class="mb" id="dlgBody"></div><div class="mf" id="dlgFoot"></div></form></dialog>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 "use strict";
+/* =====================================================================
+   KONFIGURASI SUPABASE
+   Isi dari Supabase > Project Settings > API:
+   - SUPABASE_URL      : Project URL, contoh https://abcdxyz.supabase.co
+   - SUPABASE_ANON_KEY : anon / public key
+   Anon key aman berada di sisi klien karena seluruh hak akses dijaga
+   oleh Row Level Security di basis data (01_skema_simrisiko.sql).
+   Jika dikosongkan, aplikasi berjalan dalam mode lokal (uji coba).
+   ===================================================================== */
+const SUPABASE_URL = "https://icgvjuaucvrjjhikjuhp.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_mJLdLh2kLO5mZnXzu5WUYw_oonWTzpe";
+
 /* ========== Utilities ========== */
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -203,7 +225,7 @@ const DTXT = ["", "Tidak signifikan: tidak cedera · ≤ Rp1 jt · gangguan 1–
 
 /* ========== State ========== */
 const COLS = ["units", "risks", "rtps", "events", "reports", "audits", "members", "roles", "tanggapan"];
-const S = { cfg: { tahun: TODAY.getFullYear(), acuan: "3B", seleraDefault: 12 }, view: "dashboard", mode: "loading", readOnly: false, me: { id: null, role: null, unitId: null, isOwner: false, name: "", avatar: "" }, profiles: {}, f: {}, reg: {}, ui: {} };
+const S = { cfg: { tahun: TODAY.getFullYear(), acuan: "3B", seleraDefault: 12 }, view: "dashboard", mode: "loading", readOnly: false, me: { id: null, role: null, unitId: null, isOwner: false, name: "", email: "", avatar: "" }, profiles: {}, f: {}, reg: {}, ui: {} };
 COLS.forEach((c) => (S[c] = {}));
 (function initPeriod() { const q = Math.floor(TODAY.getMonth() / 3) + 1; let t = TODAY.getFullYear(), tw = q - 1; if (tw === 0) { tw = 4; t -= 1; } S.f = { tahun: t, tw, unit: "all" }; })();
 
@@ -264,82 +286,202 @@ function canEditUnit(unitId) { if (S.readOnly) return false; return isL1() && !!
 const canValidate = () => !S.readOnly && S.me.role === "L2";
 const canAudit = () => !S.readOnly && S.me.role === "L3";
 
-/* ========== Store: db (shared) atau lokal ========== */
-let DB = null, USER = null, DL = null;
+const LOGO_SRC = document.querySelector(".brand img").src;
+/* ========== Store: Supabase (data bersama) atau lokal ========== */
+let SB = null;
 const LKEY = "simrisiko-local-v1";
+const CFG_DEFAULT = { tahun: TODAY.getFullYear(), acuan: "3B", seleraDefault: 12 };
 function saveLocal() { try { const o = { cfg: S.cfg }; COLS.forEach((c) => (o[c] = S[c])); localStorage.setItem(LKEY, JSON.stringify(o)); } catch (e) {} }
 function loadLocal() { try { const o = JSON.parse(localStorage.getItem(LKEY) || "null"); if (o) { COLS.forEach((c) => (S[c] = o[c] || {})); if (o.cfg) S.cfg = Object.assign(S.cfg, o.cfg); } } catch (e) {} }
+
+/* Pesan galat dari basis data dalam bahasa pengguna */
+function sbError(e) {
+  const msg = (e && e.message) || "";
+  if (!e) return "Gagal menyimpan.";
+  if (e.code === "42501" || /row-level security/i.test(msg)) return "Ditolak: akun Anda tidak berhak mengubah data ini.";
+  if (e.code === "P0001") return msg;
+  if (e.code === "23514") return "Data tidak memenuhi aturan basis data (misalnya peran Lini 1 wajib memiliki unit).";
+  if (/fetch|network|Failed to/i.test(msg)) return "Tidak terhubung ke server. Periksa koneksi, lalu coba lagi.";
+  return "Gagal menyimpan: " + (msg || "kesalahan tidak dikenal");
+}
+/* Tulis satu baris. Baris lama diperbarui (update), baris baru ditambah (insert),
+   sehingga setiap aksi diperiksa oleh kebijakan RLS yang tepat. */
+async function sbWrite(table, key, row, exists) {
+  let q;
+  if (exists) { q = SB.from(table).update({ data: row.data }); for (const [k, v] of Object.entries(key)) q = q.eq(k, v); }
+  else q = SB.from(table).insert(Object.assign({}, key, row));
+  const { data, error } = await q.select(Object.keys(key).join(","));
+  if (error && !exists && error.code === "23505") return sbWrite(table, key, row, true);
+  if (error) return error;
+  if (!data || !data.length) return { code: "42501", message: "row-level security" };
+  return null;
+}
 async function put(col, id, data) {
   data.updatedAt = new Date().toISOString();
   if (S.mode === "db") {
-    try { await DB.collection(col).doc(id).set(data); return true; }
-    catch (e) {
-      if (e && e.code === "invalid_argument" && ["roles", "audits", "config"].includes(col)) toast("Ditolak: tindakan ini hanya untuk pengguna yang dibagikan sebagai Editor (UMR/SPI) atau pemilik aplikasi.");
-      else if (e && e.code === "invalid_argument") { toast("Perubahan ditolak: akun Anda tidak memiliki hak menulis data bersama."); S.readOnly = true; render(); }
-      else if (e && e.code === "quota_exceeded") toast("Kapasitas data penuh. Hapus data lama, lalu coba lagi.");
-      else toast("Gagal menyimpan. Periksa koneksi, lalu coba lagi.");
-      return false;
-    }
+    let err = null;
+    if (col === "units") {
+      const { konteks: kt, ...rest } = data;
+      err = await sbWrite("units", { id }, { data: rest }, !!S.units[id]);
+      if (!err && kt) for (const [t, k] of Object.entries(kt)) {
+        const prev = S.units[id]?.konteks?.[t];
+        if (prev && JSON.stringify(prev) === JSON.stringify(k)) continue;
+        err = await sbWrite("konteks", { unit_id: id, tahun: +t }, { data: k }, !!prev);
+        if (err) break;
+      }
+    } else err = await sbWrite(col, { id }, { data }, !!S[col][id]);
+    if (err) { toast(sbError(err)); scheduleReload(col); return false; }
+    S[col][id] = data;
+    if (col === "members" || col === "roles") recomputeMe();
+    render(); return true;
   }
   S[col][id] = data; saveLocal(); render(); return true;
 }
 async function del(col, id) {
-  if (S.mode === "db") { try { await DB.collection(col).doc(id).delete(); return true; } catch (e) { toast("Gagal menghapus data."); return false; } }
+  if (S.mode === "db") {
+    const { data, error } = await SB.from(col).delete().eq("id", id).select("id");
+    if (error || !data || !data.length) { toast(error ? sbError(error) : "Ditolak: akun Anda tidak berhak menghapus data ini."); return false; }
+    delete S[col][id]; render(); return true;
+  }
   delete S[col][id]; saveLocal(); render(); return true;
 }
 async function putCfg(cfg) {
-  S.cfg = cfg;
-  if (S.mode === "db") { try { await DB.doc("config/main").set(cfg); } catch (e) { toast("Gagal menyimpan pengaturan."); } }
-  else { saveLocal(); render(); }
+  if (S.mode === "db") { const err = await sbWrite("config", { id: "main" }, { data: cfg }, true); if (err) { toast(sbError(err)); return; } S.cfg = cfg; render(); }
+  else { S.cfg = cfg; saveLocal(); render(); }
 }
 let rq = 0;
 function render() { if (rq) return; rq = requestAnimationFrame(() => { rq = 0; doRender(); }); }
 
-async function init() {
-  const cl = window.claude;
-  if (cl && typeof cl.use === "function") {
-    try { [DB, USER, DL] = await Promise.all([cl.use("db"), cl.use("user"), cl.use("downloads")]); } catch (e) {}
+/* Pembacaan data: hanya baris yang diizinkan RLS yang dikembalikan server. */
+async function fetchAll(table, cols) {
+  const out = [], size = 1000;
+  for (let from = 0; ; from += size) {
+    const { data, error } = await SB.from(table).select(cols).range(from, from + size - 1);
+    if (error) throw error;
+    out.push(...data);
+    if (data.length < size) break;
   }
-  let id = null;
-  if (DB && USER) { try { id = await USER.id(); } catch (e) {} }
-  if (DB && id) {
-    S.mode = "db";
-    const me = await USER.me();
-    S.me.id = id; S.me.isOwner = !!me.isOwner; S.me.name = me.name || ""; S.me.avatar = me.avatarUrl || "";
-    try { const w = await USER.can("data.write"); if (w === false) S.readOnly = true; } catch (e) {}
-    try { S.me.canAdmin = !!(await USER.canEdit()); } catch (e) {}
-    DB.doc("config/main").onSnapshot((d) => { if (d.exists) S.cfg = Object.assign({ tahun: TODAY.getFullYear(), acuan: "3B", seleraDefault: 12 }, d.data()); render(); }, () => {});
-    COLS.forEach((c) => {
-      DB.collection(c).onSnapshot((snap) => {
-        const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S[c] = o;
-        S.loaded = S.loaded || {}; S.loaded[c] = true;
-        if (c === "members" || c === "roles") { recomputeMe(); refreshProfiles(); }
-        render();
-      }, (e) => { if (e && e.code === "revoked") { S.mode = "revoked"; render(); } });
+  return out;
+}
+async function loadTable(c) {
+  if (c === "units") {
+    const [u, k] = await Promise.all([fetchAll("units", "id,data"), fetchAll("konteks", "unit_id,tahun,data")]);
+    const o = {}; u.forEach((r) => (o[r.id] = Object.assign({}, r.data, { konteks: {} })));
+    k.forEach((r) => { if (o[r.unit_id]) o[r.unit_id].konteks[r.tahun] = r.data; });
+    S.units = o;
+  } else if (c === "config") {
+    const rows = await fetchAll("config", "id,data"); const m = rows.find((r) => r.id === "main");
+    S.cfg = Object.assign({}, CFG_DEFAULT, m ? m.data : {});
+  } else {
+    const rows = await fetchAll(c, "id,data"); const o = {}; rows.forEach((r) => (o[r.id] = r.data)); S[c] = o;
+  }
+  S.loaded[c] = true;
+}
+async function loadAll() { await Promise.all([...COLS, "config"].map(loadTable)); recomputeMe(); render(); }
+const pendingReload = new Set(); let reloadT = 0;
+function scheduleReload(c) {
+  if (S.mode !== "db") return;
+  pendingReload.add(c); clearTimeout(reloadT);
+  reloadT = setTimeout(async () => {
+    const cs = [...pendingReload]; pendingReload.clear();
+    try { await Promise.all(cs.map(loadTable)); } catch (e) {}
+    if (cs.includes("roles") || cs.includes("members")) recomputeMe();
+    render();
+  }, 300);
+}
+
+async function init() {
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    if (!window.supabase || !window.supabase.createClient) { S.mode = "error"; S.ui.err = "Pustaka Supabase gagal dimuat. Periksa koneksi internet, lalu muat ulang halaman."; render(); return; }
+    SB = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    SB.auth.onAuthStateChange((ev) => {
+      if (ev === "PASSWORD_RECOVERY") { if (S.mode === "db") openPassword(true); else S.ui.recovery = true; return; }
+      if ((ev === "SIGNED_IN" && S.mode === "login") || (ev === "SIGNED_OUT" && S.mode === "db")) location.reload();
     });
+    let session = null;
+    try { ({ data: { session } } = await SB.auth.getSession()); } catch (e) {}
+    if (!session) { S.mode = "login"; render(); return; }
+    await startSession(session.user);
+    if (S.ui.recovery) openPassword(true);
   } else {
     S.mode = "local"; loadLocal(); S.me.role = S.ui.localRole || "L2"; S.me.canAdmin = true; S.loaded = {}; COLS.forEach((c) => (S.loaded[c] = true));
   }
   render();
 }
-/* Peran efektif hanya dari koleksi "roles" (hanya Editor/pemilik yang dapat menulis).
-   Koleksi "members" berisi permintaan peran dari pengguna sendiri. */
+async function startSession(u) {
+  S.mode = "db"; S.loaded = {};
+  S.me.id = u.id; S.me.email = u.email || ""; S.me.name = u.user_metadata?.nama || u.email || "";
+  try { const { data } = await SB.rpc("my_access"); S.me.isOwner = !!(data && data.is_admin); } catch (e) {}
+  try { await loadAll(); }
+  catch (e) { S.mode = "error"; S.ui.err = /relation|does not exist|schema cache/i.test(e?.message || "") ? "Tabel belum dibuat. Jalankan 01_skema_simrisiko.sql di Supabase SQL Editor." : sbError(e); render(); return; }
+  SB.channel("simrisiko").on("postgres_changes", { event: "*", schema: "public" }, (p) => scheduleReload(p.table === "konteks" ? "units" : p.table)).subscribe();
+}
+/* Peran efektif hanya dari tabel "roles" (ditulis admin/SPI).
+   Tabel "members" berisi permintaan peran dari pengguna sendiri. */
 function recomputeMe() {
   if (S.mode !== "db") return;
   const r = S.roles[S.me.id], m = S.members[S.me.id];
   S.me.role = r?.role || null; S.me.unitId = r?.unitId || null;
+  S.me.canAdmin = !!S.me.isOwner || S.me.role === "L3";
   S.me.pending = !r && !!m?.role;
-  if (!r && m?.role && S.me.canAdmin && S.loaded?.roles && S.loaded?.members && !S.ui.promoted) {
+  const key = `${S.me.role}|${S.me.unitId}`;
+  if (S.ui.roleKey !== undefined && S.ui.roleKey !== key) { S.ui.roleKey = key; loadAll().catch(() => {}); return; }
+  S.ui.roleKey = key;
+  if (!r && m?.role && S.me.isOwner && S.loaded?.roles && S.loaded?.members && !S.ui.promoted) {
     S.ui.promoted = true;
-    put("roles", S.me.id, { role: m.role, unitId: m.unitId || "", jabatan: m.jabatan || "", approvedBy: S.me.id, approvedAt: new Date().toISOString() });
+    put("roles", S.me.id, { role: m.role, unitId: m.unitId || "", jabatan: m.jabatan || "", nama: m.nama || S.me.name, email: m.email || S.me.email, approvedBy: S.me.id, approvedAt: new Date().toISOString() });
   }
 }
-async function refreshProfiles() {
-  if (!USER || !USER.profiles) return;
-  const ids = [...new Set([...Object.keys(S.members), ...Object.keys(S.roles)])]; if (!ids.length) return;
-  try { S.profiles = await USER.profiles(ids); render(); } catch (e) {}
+function refreshProfiles() {}
+const personName = (id) => (id === S.me.id ? (S.me.name || "Anda") : (S.roles[id]?.nama || S.members[id]?.nama || S.roles[id]?.email || S.members[id]?.email || "Pengguna"));
+
+/* ---- Masuk, daftar, lupa kata sandi ---- */
+function vLogin() {
+  const m = S.ui.auth || "masuk";
+  const t = { masuk: ["Masuk", "Masuk dengan akun email rumah sakit Anda."], daftar: ["Daftar akun", "Setelah mendaftar, ajukan peran Anda. Admin atau SPI akan menyetujuinya."], lupa: ["Atur ulang kata sandi", "Kami kirim tautan pengaturan ulang ke email Anda."] }[m];
+  return `<div class="login"><div class="lb"><img alt="Lambang Kota Semarang" src="${LOGO_SRC}"><div><b>SIM-Risiko</b><div class="small muted">RSD K.R.M.T Wongsonegoro</div></div></div>
+    <h1>${t[0]}</h1><p class="small muted" style="margin:4px 0 14px">${t[1]}</p>
+    <form id="authForm" novalidate>
+      ${m === "daftar" ? fld("nama", "Nama lengkap", "", { req: true }) : ""}
+      ${fld("email", "Email", S.ui.authEmail || "", { type: "email", req: true })}
+      ${m !== "lupa" ? fld("password", "Kata sandi", "", { type: "password", req: true, hint: m === "daftar" ? "Minimal 8 karakter." : "" }) : ""}
+      <button class="btn pri" type="submit">${m === "masuk" ? "Masuk" : m === "daftar" ? "Daftar" : "Kirim tautan"}</button>
+    </form>
+    <div class="alt">${m !== "masuk" ? `<a data-act="authmode" data-m="masuk">Sudah punya akun? Masuk</a>` : `<a data-act="authmode" data-m="daftar">Belum punya akun? Daftar</a><a data-act="authmode" data-m="lupa">Lupa kata sandi</a>`}</div></div>`;
 }
-const personName = (id) => (id === S.me.id ? (S.me.name || "Anda") : (S.profiles[id]?.name || "Pengguna"));
+document.addEventListener("submit", async (e) => {
+  if (e.target.id !== "authForm") return;
+  e.preventDefault();
+  const f = Object.fromEntries([...e.target.querySelectorAll("[name]")].map((el) => [el.name, el.value.trim()]));
+  const m = S.ui.auth || "masuk", btn = e.target.querySelector("button[type=submit]");
+  S.ui.authEmail = f.email;
+  if (!f.email || (m !== "lupa" && !f.password) || (m === "daftar" && !f.nama)) { toast("Lengkapi kolom bertanda *."); return; }
+  btn.disabled = true;
+  try {
+    if (m === "masuk") {
+      const { error } = await SB.auth.signInWithPassword({ email: f.email, password: f.password });
+      if (error) toast(/confirm/i.test(error.message) ? "Email belum dikonfirmasi. Buka tautan konfirmasi di email Anda." : "Email atau kata sandi salah.");
+    } else if (m === "daftar") {
+      if (f.password.length < 8) { toast("Kata sandi minimal 8 karakter."); return; }
+      const { data, error } = await SB.auth.signUp({ email: f.email, password: f.password, options: { data: { nama: f.nama }, emailRedirectTo: location.href.split("#")[0] } });
+      if (error) toast(/registered|exists/i.test(error.message) ? "Email sudah terdaftar. Silakan masuk." : "Pendaftaran gagal: " + error.message);
+      else if (!data.session) { S.ui.auth = "masuk"; render(); toast("Pendaftaran berhasil. Buka email Anda untuk konfirmasi, lalu masuk."); }
+    } else {
+      const { error } = await SB.auth.resetPasswordForEmail(f.email, { redirectTo: location.href.split("#")[0] });
+      toast(error ? "Gagal mengirim tautan: " + error.message : "Tautan pengaturan ulang sudah dikirim ke email Anda.");
+    }
+  } finally { btn.disabled = false; }
+});
+function openPassword(recovery) {
+  openModal(recovery ? "Buat kata sandi baru" : "Ganti kata sandi", `${fld("p1", "Kata sandi baru", "", { type: "password", req: true, hint: "Minimal 8 karakter." })}${fld("p2", "Ulangi kata sandi baru", "", { type: "password", req: true })}`,
+    { onSave: async (v, f) => {
+      if (f.p1.length < 8) { toast("Kata sandi minimal 8 karakter."); return false; }
+      if (f.p1 !== f.p2) { toast("Kedua kata sandi tidak sama."); return false; }
+      const { error } = await SB.auth.updateUser({ password: f.p1 });
+      if (error) { toast("Gagal mengganti kata sandi: " + error.message); return false; }
+      toast("Kata sandi diperbarui.");
+    } });
+}
 
 /* ========== Navigation ========== */
 const VIEWS = [
@@ -370,9 +512,9 @@ function renderNav() {
     who = `<div class="small muted">Mode lokal: data hanya tersimpan di perangkat ini.</div><label class="f"><span>Coba sebagai</span><select data-act="localrole">${Object.entries(ROLES).map(([k, v]) => `<option value="${k}" ${role === k ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>`;
     if (role === "L1") who += `<label class="f"><span>Unit</span><select data-act="localunit"><option value="">Pilih unit</option>${unitsSorted().map(([id, u]) => `<option value="${id}" ${S.me.unitId === id ? "selected" : ""}>${esc(u.nama)}</option>`).join("")}<option value="${NEW_UNIT}">+ Isi unit baru manual</option></select></label>`;
   } else {
-    who = `<div class="r">${S.me.avatar ? `<img alt="" src="${esc(S.me.avatar)}">` : ""}<div><b>${esc(S.me.name || "Anda")}</b><br>${role ? `<span class="rolepill rp-${role}">${esc(ROLE_SHORT[role])}</span>` : S.me.pending ? `<span class="muted">Menunggu persetujuan peran</span>` : `<span class="muted">Peran belum dipilih</span>`}</div></div>`;
+    who = `<div class="r">${S.me.avatar ? `<img alt="" src="${esc(S.me.avatar)}">` : ""}<div><b>${esc(S.me.name || "Anda")}</b><br><span class="small muted">${esc(S.me.email || "")}</span><br>${role ? `<span class="rolepill rp-${role}">${esc(ROLE_SHORT[role])}</span>` : S.me.pending ? `<span class="muted">Menunggu persetujuan peran</span>` : `<span class="muted">Peran belum dipilih</span>`}</div></div>`;
     if (role === "L1" && S.me.unitId) who += `<div class="small muted">${esc(unitName(S.me.unitId))}</div>`;
-    who += `<button class="btn sm" data-act="pickrole">Ubah peran</button>`;
+    who += `<div class="row"><button class="btn sm" data-act="pickrole">Ubah peran</button><button class="btn sm" data-act="password">Ganti kata sandi</button><button class="btn sm" data-act="logout">Keluar</button></div>`;
     if (S.readOnly) who += `<div class="small muted">Akses baca saja.</div>`;
   }
   $("#who").innerHTML = who;
@@ -671,7 +813,7 @@ function vGuide() {
   <tr><td>Pengawasan SPI</td><td>Hanya temuan untuk unitnya, untuk ditanggapi</td><td>Tidak dapat dibuka</td><td>Mengelola temuan dan indeks kepatuhan</td></tr>
   <tr><td>Pengaturan</td><td>Tidak dapat dibuka</td><td>Tidak dapat dibuka</td><td>Unit, acuan, dan persetujuan peran (bersama admin)</td></tr>
   </tbody></table></div>
-  <p class="small muted" style="margin:8px 0 0">Pengaturan hanya dapat dibuka admin (pemilik aplikasi) dan SPI. Peran ditetapkan melalui persetujuan admin atau SPI. Lini 1 dan UMR dibagikan sebagai Contributor; SPI sebagai Editor.</p></div>
+  <p class="small muted" style="margin:8px 0 0">Pengaturan hanya dapat dibuka admin (pemilik aplikasi) dan SPI. Peran ditetapkan melalui persetujuan admin atau SPI. Setiap pengguna masuk dengan akun email masing-masing; hak akses dijalankan oleh basis data.</p></div>
   <h2>Langkah pengisian</h2>
   ${step(1, "Konteks unit kerja (Lampiran 1)", `<p><b>Siapa:</b> Pemilik Risiko dibantu Pengelola Risiko. <b>Kapan:</b> awal tahun. <b>Menu:</b> Konteks unit → Isi konteks.</p><ol><li>Tulis visi dan misi unit yang diturunkan dari Renstra.</li><li>Isi sasaran/IKU dengan target dan indikator, lalu tandai kesesuaian dengan indikator mutu nasional.</li><li>Isi proses bisnis utama, output, dan risiko yang melekat.</li><li>Isi pemangku kepentingan, harapan, dan risiko yang dikhawatirkan.</li><li>Tetapkan <b>selera risiko</b> dalam kalimat dan angka (skor maksimal yang masih diterima). Selera unit tidak boleh lebih longgar dari selera rumah sakit: tidak mentoleransi sentinel dan pelanggaran hukum berat.</li></ol><div class="ex"><b>Contoh klinis (Rawat Inap):</b> sasaran "Kejadian pasien jatuh = 0 per tahun"; selera "tidak mentoleransi pasien jatuh dengan cedera berat", batas skor ≤ 12.<br><b>Contoh keuangan (Casemix):</b> sasaran "Klaim pending ≤ 2% nilai klaim per bulan"; batas ≤ 12.<br><b>Contoh reputasi (Rawat Jalan):</b> "tidak mentoleransi keluhan yang diberitakan media"; batas ≤ 6.<br><b>Contoh hukum (Bedah Sentral):</b> "tidak mentoleransi tindakan tanpa persetujuan sah"; batas ≤ 6.</div>`, true)}
   ${step(2, "Identifikasi risiko (Register, Lampiran 4)", `<p><b>Menu:</b> Register risiko → Tambah risiko. Pilih sasaran dari Lampiran 1, lalu isi tiga kolom yang membentuk pernyataan risiko: <b>peristiwa</b>, <b>penyebab</b>, dan <b>dampak</b>. Aplikasi merangkainya menjadi "Kemungkinan … yang disebabkan …, sehingga …".</p><p>Sumber identifikasi: laporan insiden, keluhan, temuan audit, survei akreditasi, indikator mutu yang tidak tercapai, regulasi baru, curah pendapat, dan FMEA.</p><div class="ex"><b>Keliru:</b> "Kekurangan perawat" (ini penyebab, bukan risiko).<br><b>Benar:</b> Kemungkinan pasien risiko tinggi jatuh, yang disebabkan asesmen ulang tidak dilakukan tiap shift dan bel kamar mandi rusak, sehingga cedera dan masa rawat bertambah.</div><div class="ex"><b>Keuangan:</b> klaim BPJS pending · resume medis tidak lengkap dan koding tidak sesuai · pendapatan tertunda.<br><b>Reputasi:</b> keluhan waktu tunggu > 3 jam viral · dokter terlambat, antrean online belum terhubung · pemberitaan negatif.<br><b>Hukum:</b> rumah sakit digugat pasien · informed consent tidak lengkap · ganti rugi.</div>`)}
@@ -683,7 +825,7 @@ function vGuide() {
   ${step(8, "Peristiwa risiko dan insiden (Lampiran 8)", `<p><b>Menu:</b> Peristiwa & insiden → Catat peristiwa. Pilih jenis: KPCS, KNC, KTC, KTD, Sentinel, atau Non-klinis. Isi waktu kejadian dan waktu dilaporkan ke Direktur/UMR; aplikasi menghitung apakah ≤ 1×24 jam untuk sentinel dan kejadian yang ditandai signifikan. KTD dan Sentinel wajib ditandai sudah dilaporkan ke SIK (e-report Kemenkes).</p><div class="ex"><b>KTD:</b> pasien 72 tahun jatuh, fraktur pergelangan, rawat +3 hari, D = 3, kaitkan ke RI-PD-01.<br><b>Non-klinis signifikan:</b> somasi kuasa hukum pasien operasi, D = 5, kaitkan ke IBS-01, lapor ≤ 1×24 jam.</div>`)}
   ${step(9, "Laporan triwulan (Lampiran 9 dan 10)", `<p><b>Lini 1:</b> Laporan triwulan → Susun laporan. Ringkasan eksekutif terisi otomatis dari register, RTP, dan peristiwa. Tambahkan hambatan, rencana triwulan berikutnya, dan rekomendasi utama, lalu <b>Kirim laporan</b>.</p><p><b>Lini 2:</b> Susun laporan konsolidasi. Profil risiko, distribusi level, lima prioritas teratas, realisasi RTP per unit, dan kejadian signifikan terisi otomatis. Tambahkan rekomendasi untuk Direktur, lalu kirim. Laporan dapat diunduh sebagai HTML untuk dicetak atau ditandatangani.</p><p><b>Semesteran:</b> risiko klinis prioritas tinggi dinilai ulang setiap 6 bulan (Pasal 10 ayat 3). Perbarui K dan D residu di register pada TW II dan TW IV.</p>`)}
   <div class="panel" style="margin-top:14px"><h2>Pertanyaan umum</h2>
-  <p><b>Apakah data saya terlihat unit lain?</b> Tidak. Di aplikasi, Lini 1 hanya melihat data unitnya sendiri. UMR membaca data semua unit untuk validasi dan konsolidasi tanpa dapat mengubah isian unit. SPI dapat membaca seluruh lini.</p>
+  <p><b>Apakah data saya terlihat unit lain?</b> Tidak. Lini 1 hanya dapat membaca data unitnya sendiri, dan aturan ini dijalankan langsung oleh basis data. UMR membaca data semua unit untuk validasi dan konsolidasi tanpa dapat mengubah isian unit. SPI dapat membaca seluruh lini.</p>
   <p><b>Saya salah memilih peran.</b> Tekan Ubah peran di bawah menu untuk mengajukan ulang. Perubahan aktif setelah disetujui admin atau SPI di Pengaturan.</p>
   <p style="margin:0"><b>Mengapa warna berbeda dengan matriks di Lampiran 3A?</b> Pedoman memuat dua rentang berbeda. Aplikasi memakai Lampiran 3B sebagai bawaan; admin atau SPI dapat mengubahnya di Pengaturan setelah ada penetapan resmi.</p></div>`;
 }
@@ -705,8 +847,7 @@ function vSettings() {
     const desc = (x) => x?.role ? `${ROLE_SHORT[x.role]}${x.unitId ? " · " + unitName(x.unitId) : ""}` : "–";
     h += `<div class="panel" style="margin-bottom:14px"><div class="row"><h2 style="margin:0">Pengguna dan hak akses</h2><span class="spacer"></span>${pend.size ? `<span class="tag warn">${pend.size} menunggu persetujuan</span>` : ""}</div>
     ${ids.length ? `<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Pengguna</th><th>Peran aktif</th><th>Permintaan</th><th>Jabatan</th><th>Status</th><th></th></tr></thead><tbody>${ids.map((id) => { const r = S.roles[id], q = S.members[id]; return `<tr><td>${esc(personName(id))}</td><td>${r?.role ? `<span class="rolepill rp-${r.role}">${esc(ROLE_SHORT[r.role])}</span>${r.unitId ? `<br><span class="small">${esc(unitName(r.unitId))}</span>` : ""}` : "–"}</td><td>${pend.has(id) ? esc(desc(q)) : "–"}</td><td>${esc(r?.jabatan || q?.jabatan || "–")}</td><td>${pend.has(id) ? `<span class="tag warn">Menunggu</span>` : r ? `<span class="tag ok">Aktif</span>` : `<span class="tag">Belum mengajukan</span>`}</td><td><div class="row">${ap && pend.has(id) ? `<button class="btn sm pri" data-act="approverole" data-id="${id}">Setujui</button>` : ""}${ap ? `<button class="btn sm" data-act="pickrole" data-id="${id}">Tetapkan</button>` : ""}${ap && r && id !== S.me.id ? `<button class="btn sm" data-act="revokerole" data-id="${id}">Cabut</button>` : ""}</div></td></tr>`; }).join("")}</tbody></table></div>` : `<p class="muted">Belum ada pengguna yang mengajukan peran.</p>`}
-    ${isL3() && !S.me.canAdmin ? `<p class="small banner" style="margin-top:10px">Akun SPI Anda dibagikan sebagai Contributor, sehingga belum dapat menyetujui peran. Minta admin membagikan ulang sebagai Editor.</p>` : ""}
-    <p class="small muted">Cara berbagi: Lini 1 dan UMR sebagai <b>Contributor</b>; SPI sebagai <b>Editor</b>. Pengguna mengajukan peran sendiri, lalu admin atau SPI menyetujuinya. Penetapan peran, temuan SPI, dan acuan penilaian hanya dapat ditulis oleh Editor atau pemilik, sehingga Lini 1 tidak dapat mengangkat dirinya menjadi Lini 2 atau Lini 3.</p></div>`;
+        <p class="small muted">Pengguna mendaftar dengan email, lalu mengajukan peran. Admin atau SPI menyetujuinya di sini. Hak akses dijaga oleh Row Level Security di basis data: Lini 1 hanya dapat membaca dan mengubah data unitnya, UMR hanya dapat memvalidasi, dan penetapan peran hanya dapat dilakukan admin atau SPI. Admin ditetapkan melalui 02_tetapkan_admin.sql.</p></div>`;
   }
   const nC = COLS.reduce((a, c) => a + Object.values(S[c]).filter((x) => x.contoh).length, 0);
   if (nC && ad) h += `<div class="panel"><h2>Data contoh</h2><p>Aplikasi berisi ${nC} data contoh (empat kasus pelatihan: pasien jatuh, klaim BPJS, keluhan viral, dan informed consent) yang ditandai "contoh". Hapus sebelum dipakai untuk data riil.</p><button class="btn" data-act="delcontoh">Hapus semua data contoh</button></div>`;
@@ -715,14 +856,17 @@ function vSettings() {
 
 /* ========== Main render ========== */
 function doRender() {
+  document.querySelector(".app").classList.toggle("auth", S.mode === "login" || S.mode === "error");
+  if (S.mode === "login") { $("#main").innerHTML = vLogin(); return; }
+  if (S.mode === "error") { $("#main").innerHTML = emptyBox("SIM-Risiko belum dapat dibuka", esc(S.ui.err || "Terjadi kesalahan."), `<button class="btn" onclick="location.reload()">Muat ulang</button>`); return; }
   renderNav();
   const m = $("#main");
   if (S.mode === "loading") return;
   if (S.mode === "revoked") { m.innerHTML = emptyBox("Akses ke data tidak tersedia", "Muat ulang halaman untuk mencoba lagi."); return; }
   let pre = "";
-  if (S.mode === "local") pre = `<div class="banner"><b>Mode lokal.</b> Data bersama tidak tersedia di tampilan ini, jadi isian hanya tersimpan di perangkat ini. Buka aplikasi melalui tautan claude.ai yang dibagikan agar Lini 1, 2, dan 3 bekerja pada data yang sama.</div>`;
+  if (S.mode === "local") pre = `<div class="banner"><b>Mode lokal.</b> Data bersama tidak tersedia di tampilan ini, jadi isian hanya tersimpan di perangkat ini. Isi SUPABASE_URL dan SUPABASE_ANON_KEY di bagian atas kode agar Lini 1, 2, dan 3 bekerja pada data yang sama.</div>`;
   else if (!S.me.role && S.loaded?.members && S.loaded?.roles) pre = S.me.pending ? `<div class="banner"><b>Permintaan peran Anda menunggu persetujuan</b> (${esc(ROLE_SHORT[S.members[S.me.id]?.role] || "")}). Sampai disetujui admin atau SPI, Anda hanya dapat membuka Panduan. <button class="btn sm" data-act="pickrole">Ubah permintaan</button></div>` : `<div class="banner"><b>Ajukan peran Anda</b> agar dapat membuka menu sesuai lini. <button class="btn sm pri" data-act="pickrole">Ajukan peran</button></div>`;
-  if (S.readOnly) pre += `<div class="banner">Akun Anda hanya dapat membaca data. Minta pemilik aplikasi membagikan sebagai Contributor untuk mengisi.</div>`;
+  if (S.readOnly) pre += `<div class="banner">Akun Anda hanya dapat membaca data. Hubungi admin aplikasi.</div>`;
   if (isL1()) S.f.unit = S.me.unitId || "all";
   if (!canView(S.view)) S.view = allowedViews()[0];
   renderNav();
@@ -793,7 +937,7 @@ function openRole(memberId) {
   const id = memberId || S.me.id, self = id === S.me.id;
   const m = (self ? S.members[id] || S.roles[id] : S.members[id] || S.roles[id]) || {};
   const direct = canApprove() || (self && S.me.canAdmin);
-  if (!self && !canApprove()) { toast("Hanya admin atau SPI (dibagikan sebagai Editor) yang dapat mengubah peran pengguna lain."); return; }
+  if (!self && !canApprove()) { toast("Hanya admin atau SPI yang dapat mengubah peran pengguna lain."); return; }
   openModal(self ? (direct ? "Pilih peran Anda" : "Ajukan peran Anda") : `Tetapkan peran: ${personName(id)}`, `<p class="small" style="margin-top:0">Peran menentukan menu dan data yang dapat Anda buka. Lini 1 hanya melihat dan mengisi data unitnya sendiri; Lini 2 (UMR) memvalidasi dan menyusun konsolidasi; Lini 3 (SPI) dapat membuka semua lini.</p>${direct ? "" : `<p class="small banner" style="margin:0 0 12px">Peran baru aktif setelah disetujui admin atau SPI.</p>`}
     ${fld("role", "Peran", m.role || "", { type: "select", req: true, opts: Object.entries(ROLES) })}
     ${fld("unitId", "Unit kerja (wajib untuk Lini 1)", m.unitId || (unitsSorted().length ? "" : NEW_UNIT), { type: "select", opts: [...unitOpts(), [NEW_UNIT, "+ Unit belum ada di daftar, isi manual"]], hint: "Pilih unit Anda. Bila belum ada, pilih isi manual lalu tulis nama unit dan pemilik risikonya." })}
@@ -805,7 +949,7 @@ function openRole(memberId) {
       let unitId = f.unitId;
       if (f.role === "L1" && unitId === NEW_UNIT) { unitId = await createUnitFrom(f); if (!unitId) return false; }
       if (unitId === NEW_UNIT) unitId = "";
-      const rec = { role: f.role, unitId: f.role === "L1" ? unitId : "", jabatan: f.jabatan };
+      const rec = { role: f.role, unitId: f.role === "L1" ? unitId : "", jabatan: f.jabatan, nama: self ? S.me.name : (m.nama || ""), email: self ? S.me.email : (m.email || "") };
       if (self) await put("members", id, Object.assign({ requestedAt: new Date().toISOString() }, rec));
       if (direct) { await put("roles", id, Object.assign({ approvedBy: S.me.id, approvedAt: new Date().toISOString() }, rec)); toast(self ? "Peran disimpan." : "Peran pengguna ditetapkan."); }
       else toast("Permintaan peran dikirim. Menunggu persetujuan admin atau SPI.");
@@ -903,7 +1047,7 @@ function openRisk(id) {
       if (!f.unitId || !f.peristiwa || !f.penyebab || !f.dampak || !f.K || !f.D || !f.kategori) { toast("Lengkapi kolom bertanda *."); return false; }
       if ((f.Kr && !f.Dr) || (!f.Kr && f.Dr)) { toast("Isi K residu dan D residu bersamaan."); return false; }
       if (f.Kr && f.Dr && +f.Kr * +f.Dr > +f.K * +f.D) { toast("Skor residu tidak boleh lebih tinggi dari skor inheren."); return false; }
-      const o = Object.assign({}, r, { unitId: f.unitId, tahun: +f.tahun, kategori: f.kategori, sasaran: f.sasaran, peristiwa: f.peristiwa, penyebab: f.penyebab, dampak: f.dampak, K: +f.K, D: +f.D, dasarK: f.dasarK, dasarD: f.dasarD, pengendalian: f.pengendalian, efektivitas: f.efektivitas, Kr: f.Kr ? +f.Kr : null, Dr: f.Dr ? +f.Dr : null, bukti: f.bukti });
+      const o = isUMR ? JSON.parse(JSON.stringify(r)) : Object.assign({}, r, { unitId: f.unitId, tahun: +f.tahun, kategori: f.kategori, sasaran: f.sasaran, peristiwa: f.peristiwa, penyebab: f.penyebab, dampak: f.dampak, K: +f.K, D: +f.D, dasarK: f.dasarK, dasarD: f.dasarD, pengendalian: f.pengendalian, efektivitas: f.efektivitas, Kr: f.Kr ? +f.Kr : null, Dr: f.Dr ? +f.Dr : null, bukti: f.bukti });
       if (!id) { o.createdAt = new Date().toISOString(); o.by = S.me.id || "lokal"; }
       if (f.kode !== undefined) { o.kode = f.kode; o.catatanUMR = f.catatanUMR; }
       if (v === "ajukan") o.status = "Diajukan";
@@ -1002,12 +1146,12 @@ function openReport(unitId) {
     ${fld("hambatan", "Permasalahan / hambatan utama", rep.hambatan || s.rt.map(([, x]) => (x.monitor || {})[key]?.hambatan).filter(Boolean).join("; "), { type: "textarea", req: true })}
     ${fld("rencana", "Rencana tindak lanjut triwulan berikutnya", rep.rencana, { type: "textarea", req: true })}
     ${fld("rekomendasi", "Rekomendasi utama", rep.rekomendasi, { type: "textarea" })}
-    ${rep.status === "Dikirim" ? `<p class="small muted">Dikirim ${fmtDT(rep.sentAt)} oleh ${esc(personName(rep.sentBy))}.</p>` : ""}`,
+    ${rep.status === "Dikirim" ? `<p class="small muted">Dikirim ${fmtDT(rep.sentAt)} oleh ${esc(rep.sentByName || personName(rep.sentBy))}.</p>` : ""}`,
     { readOnly: ro, buttons: [{ v: "save", t: "Simpan draf" }, { v: "kirim", t: "Kirim laporan", pri: true }],
       onSave: async (v, f) => {
         if (v === "kirim" && (!f.hambatan || !f.rencana)) { toast("Isi hambatan dan rencana sebelum mengirim."); return false; }
         const o = Object.assign({}, rep, { unitId, periode: key, hambatan: f.hambatan, rencana: f.rencana, rekomendasi: f.rekomendasi, status: v === "kirim" ? "Dikirim" : "Draf" });
-        if (v === "kirim") { o.sentAt = new Date().toISOString(); o.sentBy = S.me.id || "lokal"; o.angka = { risiko: s.rs.length, prioritas: s.prio, merah: s.merah, rtpDue: s.due.length, rtpDone: s.done.length, terlambat: s.late, peristiwa: s.ev.length }; }
+        if (v === "kirim") { o.sentAt = new Date().toISOString(); o.sentBy = S.me.id || "lokal"; o.sentByName = S.me.name || ""; o.angka = { risiko: s.rs.length, prioritas: s.prio, merah: s.merah, rtpDue: s.due.length, rtpDone: s.done.length, terlambat: s.late, peristiwa: s.ev.length }; }
         await put("reports", rid, o); toast(v === "kirim" ? "Laporan dikirim ke Pemilik Risiko dan UMR." : "Draf laporan disimpan.");
       } });
 }
@@ -1057,8 +1201,11 @@ function openAudit(id) {
 
 /* ========== Unduhan ========== */
 async function saveFile(filename, data) {
-  if (DL) { try { await DL.save({ filename, data }); return; } catch (e) { if (e?.code === "declined") return; if (e?.code === "rate_limited") { toast("Tunggu sebentar, lalu coba unduh lagi."); return; } } }
-  toast("Unduhan tidak tersedia di tampilan ini.");
+  try {
+    const type = filename.endsWith(".csv") ? "text/csv;charset=utf-8" : "text/html;charset=utf-8";
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type })); a.download = filename;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  } catch (e) { toast("Gagal mengunduh berkas."); }
 }
 const csvCell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
 function csvRegister() {
@@ -1067,7 +1214,6 @@ function csvRegister() {
   const rows = rs.map(([, r], i) => [i + 1, unitName(r.unitId), r.sasaran, r.kode, r.kategori, uraian(r), r.K, r.D, `${inh(r)} ${lvl(inh(r)).n}`, warna(lvl(inh(r)).i), r.pengendalian, r.efektivitas, r.Kr || r.K, r.Dr || r.D, `${res(r)} ${lvl(res(r)).n}`, seleraMaks(r.unitId, r.tahun), isPrio(r) ? "Prioritas" : "Tidak", r.status || "Draf", r.rca?.akar || ""]);
   saveFile(`Register_Risiko_${S.f.tahun}${S.f.unit !== "all" ? "_" + (S.units[S.f.unit]?.singkatan || "unit") : ""}.csv`, "\ufeff" + [hd, ...rows].map((r) => r.map(csvCell).join(",")).join("\n"));
 }
-const LOGO_SRC = document.querySelector(".brand img").src;
 function docShell(title, inner) {
   return `<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>${esc(title)}</title><style>body{font:12pt/1.5 "Times New Roman",serif;color:#000;max-width:800px;margin:24px auto;padding:0 20px}.kop{display:flex;gap:14px;align-items:center;border-bottom:3px solid #000;padding-bottom:8px;margin-bottom:16px}.kop img{width:64px}.kop b{font-size:15pt}table{border-collapse:collapse;width:100%;font-size:10pt;margin:8px 0}th,td{border:1px solid #444;padding:4px 6px;text-align:left;vertical-align:top}th{background:#eee}h3{font-size:12pt;margin:14px 0 4px}.ttd{display:flex;justify-content:space-between;margin-top:40px;text-align:center}.ttd div{width:45%}@media print{body{margin:0}}</style></head><body><div class="kop"><img alt="" src="${LOGO_SRC}"><div>PEMERINTAH KOTA SEMARANG<br><b>RUMAH SAKIT DAERAH K.R.M.T. WONGSONEGORO</b><br><small>Jalan Fatmawati No. 1 Semarang 50272</small></div></div>${inner}</body></html>`;
 }
@@ -1112,9 +1258,12 @@ const ACT = {
   editkonteks: (d) => openKonteks(d.id), editunit: (d) => openUnit(d.id),
   editreport: (d) => openReport(d.id), editumr: () => openUMR(), dlreport: (d) => dlReport(d.id), dlumr: () => dlUMR(), csvreg: () => csvRegister(),
   newaudit: () => openAudit(null), newunitlocal: () => openNewUnitLocal(),
-  approverole: async (d) => { const q = S.members[d.id]; if (!q?.role || !canApprove()) return; await put("roles", d.id, { role: q.role, unitId: q.role === "L1" ? q.unitId || "" : "", jabatan: q.jabatan || "", approvedBy: S.me.id, approvedAt: new Date().toISOString() }); toast("Peran disetujui."); },
+  logout: async () => { await SB.auth.signOut(); location.reload(); },
+  password: () => openPassword(false),
+  authmode: (d) => { S.ui.auth = d.m; render(); },
+  approverole: async (d) => { const q = S.members[d.id]; if (!q?.role || !canApprove()) return; await put("roles", d.id, { role: q.role, unitId: q.role === "L1" ? q.unitId || "" : "", jabatan: q.jabatan || "", nama: q.nama || "", email: q.email || "", approvedBy: S.me.id, approvedAt: new Date().toISOString() }); toast("Peran disetujui."); },
   revokerole: async (d) => { if (!canApprove() || !confirm(`Cabut peran ${personName(d.id)}? Pengguna hanya dapat membuka Panduan sampai peran ditetapkan lagi.`)) return; await del("roles", d.id); toast("Peran dicabut."); }, editaudit: (d) => openAudit(d.id),
-  pickrole: (d) => { if (S.mode === "local") { toast("Di mode lokal, pilih peran dari menu Coba sebagai."); return; } openRole(d.id); },
+  pickrole: (d) => { if (S.mode !== "db" && S.mode !== "local") return; if (S.mode === "local") { toast("Di mode lokal, pilih peran dari menu Coba sebagai."); return; } openRole(d.id); },
   savecfg: async () => { const t = +$("#cfgTahun").value, a = $("#cfgAcuan").value, s = +$("#cfgSelera").value; if (!t || !s) return; await putCfg(Object.assign({}, S.cfg, { tahun: t, acuan: a, seleraDefault: s })); toast("Acuan penilaian disimpan."); },
   delcontoh: async () => { if (!confirm("Hapus semua data contoh? Data riil tidak terpengaruh.")) return; for (const c of COLS) for (const [id, x] of Object.entries(S[c])) if (x.contoh) await del(c, id); toast("Data contoh dihapus."); },
 };
