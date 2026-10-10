@@ -175,6 +175,18 @@ dialog.wide{width:min(1100px,96vw)}
 .fish .spine{grid-column:1/4;height:4px;background:var(--ink-3);border-radius:2px;align-self:center;position:relative}
 .fish .spine::after{content:"";position:absolute;right:-2px;top:-6px;border-left:12px solid var(--ink-3);border-top:8px solid transparent;border-bottom:8px solid transparent}
 .fish .head{grid-row:1/4;grid-column:4;background:var(--red);color:#fff;border-radius:8px;padding:10px;display:flex;align-items:center;font-size:13px;font-weight:600}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 14px;flex-wrap:wrap}
+.tabs button{all:unset;cursor:pointer;padding:8px 14px;border-radius:8px 8px 0 0;font-weight:600;font-size:14px;color:var(--ink-2);border:1px solid transparent;border-bottom:0;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{background:var(--paper);border-color:var(--line);color:var(--ink)}
+.tabs button:focus-visible{outline:2px solid var(--focus)}
+.kk{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--paper)}
+.kk-h{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.kk-h b{flex:1;min-width:240px}
+.kk-sys{background:var(--surface);border-radius:8px;padding:6px 10px;margin:6px 0;font-size:13px}
+.kk-g{display:grid;grid-template-columns:190px 1fr 1.4fr;gap:8px;align-items:start}
+.kk-g textarea{min-height:38px}
+.area-h{font-size:15px;font-weight:700;margin:14px 0 8px}
+@media (max-width:980px){.kk-g{grid-template-columns:1fr}}
 .flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;margin:8px 0}
 .flow span{background:var(--surface);border-radius:999px;padding:3px 10px}
 .flow i{color:var(--ink-3);font-style:normal}
@@ -268,10 +280,57 @@ const CEK_UMR = [
   ["duplikat", "Tidak duplikat dengan risiko lain"],
 ];
 const IMPL_STATUS = ["Berjalan", "Selesai", "Tertunda"];
-const TABEL_LABEL = { risks: "Register risiko", rtps: "RTP dan implementasi", events: "Peristiwa", reports: "Laporan", audits: "Temuan SPI", tanggapan: "Tanggapan unit", reviu: "Reviu UMR", units: "Unit kerja", konteks: "Konteks unit", roles: "Peran", members: "Permintaan peran", config: "Acuan penilaian" };
-const FIELD_LABEL = { unitId: "Unit", tahun: "Tahun", kategori: "Kategori", sasaran: "Sasaran", peristiwa: "Peristiwa", penyebab: "Penyebab", dampak: "Dampak", K: "K inheren", D: "D inheren", Kr: "K residu", Dr: "D residu", dasarK: "Dasar K", dasarD: "Dasar D", pengendalian: "Pengendalian yang ada", efektivitas: "Efektivitas", bukti: "Bukti", status: "Status", kode: "Kode risiko", catatanUMR: "Catatan UMR", cekUMR: "Daftar periksa UMR", eskalasi: "Eskalasi", penilaian: "Penilaian ulang", rca: "RCA", riskId: "Risiko", akar: "Akar penyebab", kegiatan: "Kegiatan", opsi: "Pilihan penanganan", kendali: "Jenis pengendalian", pj: "Penanggung jawab", pihak: "Pihak terkait", indikator: "Indikator", targetNilai: "Target indikator", anggaran: "Sumber daya/anggaran", target: "Target waktu", mulai: "Tanggal mulai", selesai: "Tanggal selesai", Kt: "K setelah tindakan", Dt: "D setelah tindakan", impl: "Catatan implementasi", monitor: "Realisasi triwulan", jenis: "Jenis", waktuKejadian: "Waktu kejadian", uraian: "Uraian", lokasi: "Lokasi", tindakan: "Tindakan segera", koreksi: "Tindakan koreksi", waktuLapor: "Waktu lapor", sik: "Lapor SIK", signifikan: "Kejadian signifikan", pelapor: "Pelapor", statusTL: "Status tindak lanjut", perluRCA: "Perlu RCA", hambatan: "Hambatan", rencana: "Rencana", rekomendasi: "Rekomendasi", nama: "Nama", singkatan: "Singkatan", pemilik: "Pemilik risiko", visi: "Visi dan misi", proses: "Proses bisnis", stakeholder: "Pemangku kepentingan", selera: "Selera risiko", aspek: "Aspek", kondisi: "Kondisi", temuan: "Temuan", kriteria: "Kriteria", sebab: "Sebab", akibat: "Akibat", prioritas: "Prioritas", batas: "Batas waktu", verifikasi: "Verifikasi SPI", tanggapan: "Tanggapan", targetTL: "Target tindak lanjut", buktiTL: "Bukti tindak lanjut", catatan: "Catatan", role: "Peran", jabatan: "Jabatan", email: "Email", acuan: "Acuan level", seleraDefault: "Selera bawaan", sentAt: "Waktu kirim", angka: "Angka laporan", periode: "Periode" };
+const TABEL_LABEL = { kka: "Kertas kerja audit", risks: "Register risiko", rtps: "RTP dan implementasi", events: "Peristiwa", reports: "Laporan", audits: "Temuan SPI", tanggapan: "Tanggapan unit", reviu: "Reviu UMR", units: "Unit kerja", konteks: "Konteks unit", roles: "Peran", members: "Permintaan peran", config: "Acuan penilaian" };
+const FIELD_LABEL = { unitId: "Unit", tahun: "Tahun", kategori: "Kategori", sasaran: "Sasaran", peristiwa: "Peristiwa", penyebab: "Penyebab", dampak: "Dampak", K: "K inheren", D: "D inheren", Kr: "K residu", Dr: "D residu", dasarK: "Dasar K", dasarD: "Dasar D", pengendalian: "Pengendalian yang ada", efektivitas: "Efektivitas", bukti: "Bukti", status: "Status", kode: "Kode risiko", catatanUMR: "Catatan UMR", cekUMR: "Daftar periksa UMR", eskalasi: "Eskalasi", penilaian: "Penilaian ulang", rca: "RCA", riskId: "Risiko", akar: "Akar penyebab", kegiatan: "Kegiatan", opsi: "Pilihan penanganan", kendali: "Jenis pengendalian", pj: "Penanggung jawab", pihak: "Pihak terkait", indikator: "Indikator", targetNilai: "Target indikator", anggaran: "Sumber daya/anggaran", target: "Target waktu", mulai: "Tanggal mulai", selesai: "Tanggal selesai", Kt: "K setelah tindakan", Dt: "D setelah tindakan", impl: "Catatan implementasi", monitor: "Realisasi triwulan", jenis: "Jenis", waktuKejadian: "Waktu kejadian", uraian: "Uraian", lokasi: "Lokasi", tindakan: "Tindakan segera", koreksi: "Tindakan koreksi", waktuLapor: "Waktu lapor", sik: "Lapor SIK", signifikan: "Kejadian signifikan", pelapor: "Pelapor", statusTL: "Status tindak lanjut", perluRCA: "Perlu RCA", hambatan: "Hambatan", rencana: "Rencana", rekomendasi: "Rekomendasi", nama: "Nama", singkatan: "Singkatan", pemilik: "Pemilik risiko", visi: "Visi dan misi", proses: "Proses bisnis", stakeholder: "Pemangku kepentingan", selera: "Selera risiko", aspek: "Aspek", kondisi: "Kondisi", temuan: "Temuan", kriteria: "Kriteria", sebab: "Sebab", akibat: "Akibat", prioritas: "Prioritas", batas: "Batas waktu", verifikasi: "Verifikasi SPI", tanggapan: "Tanggapan", targetTL: "Target tindak lanjut", buktiTL: "Bukti tindak lanjut", catatan: "Catatan", role: "Peran", jabatan: "Jabatan", email: "Email", acuan: "Acuan level", seleraDefault: "Selera bawaan", sentAt: "Waktu kirim", angka: "Angka laporan", periode: "Periode", items: "Penilaian kriteria", kesimpulan: "Kesimpulan", auditor: "Auditor", tim: "Tim audit", nomor: "Nomor", tglMulai: "Tanggal mulai", tglSelesai: "Tanggal selesai", skor: "Skor", predikat: "Predikat", disetujui: "Disetujui oleh" };
+/* ---- Kriteria audit penerapan manajemen risiko (Lini 3) ---- */
+const KKA_JENIS = { L1: "Unit kerja (Lini 1)", L2: "Unit Manajemen Risiko (Lini 2)", RS: "Tata kelola dan infrastruktur rumah sakit" };
+const KKA_AREA = { RS: "I. Infrastruktur dan tata kelola manajemen risiko", L1: "II. Proses manajemen risiko di unit kerja (Lini 1)", L2: "III. Fungsi Unit Manajemen Risiko (Lini 2)" };
+const NILAI = { S: "Sesuai", SB: "Sebagian sesuai", TS: "Tidak sesuai", TB: "Tidak berlaku" };
+const NSKOR = { S: 2, SB: 1, TS: 0 };
+const KKA = [
+  ["RS", "I1", "Budaya risiko: insiden keselamatan pasien diintegrasikan ke dalam proses manajemen risiko", "Pasal 4 ayat (1) dan (2) huruf a", "Periksa komitmen pimpinan dan apakah insiden (KTD/KTC) ditelusuri ke register risiko. Bukti: kebijakan, laporan insiden, register risiko."],
+  ["RS", "I2", "Manajemen risiko terintegrasi dalam proses bisnis utama (asuhan pasien, pengadaan obat, SDM)", "Pasal 4 ayat (2) huruf b; Pasal 11 ayat (2) huruf b", "Periksa apakah proses bisnis utama setiap unit tercantum di konteks dan memiliki risiko terkait."],
+  ["RS", "I3", "Informasi risiko disampaikan berkala (rapat tinjauan manajemen, safety briefing, buletin internal)", "Pasal 4 ayat (2) huruf c; Pasal 17 ayat (1)", "Periksa notulen rapat, materi safety briefing, dan buletin internal selama periode audit."],
+  ["RS", "I4", "Program pelatihan manajemen risiko tersedia (pelatihan dasar, RCA, FMEA)", "Pasal 4 ayat (2) huruf d; Pasal 7 ayat (3) huruf f", "Periksa rencana dan realisasi pelatihan, daftar hadir, dan sertifikat."],
+  ["RS", "I5", "Penghargaan diberikan atas pelaporan insiden dan upaya perbaikan proaktif", "Pasal 4 ayat (2) huruf e", "Periksa SK atau daftar penerima penghargaan dan bentuk penghargaannya."],
+  ["RS", "I6", "Struktur tiga lini berjalan: Pemilik dan Pengelola Risiko ditunjuk di setiap unit, UMR dan SPI menjalankan fungsinya", "Pasal 5 sampai Pasal 8", "Periksa SK penunjukan Pemilik dan Pengelola Risiko, SK UMR, dan bandingkan dengan pengguna aktif SIM-Risiko."],
+  ["RS", "I7", "Sistem informasi manajemen risiko digunakan untuk register, pemantauan RTP, dan laporan", "Pasal 9 ayat (1)", "Periksa pemakaian SIM-Risiko oleh seluruh unit pada tahun berjalan."],
+  ["RS", "I8", "Anggaran manajemen risiko dialokasikan oleh Pemilik Risiko dan secara terpusat", "Pasal 9 ayat (2)", "Periksa RKA unit dan RBA rumah sakit untuk sosialisasi, pelatihan, pertemuan, dan pengembangan SIM-Risiko."],
+  ["RS", "I9", "Klaim dan tuntutan dikelola", "Pasal 3 huruf e", "Periksa register klaim/somasi dan keterkaitannya dengan risiko hukum dan keuangan."],
+  ["RS", "I10", "Kriteria risiko (matriks) dan selera risiko rumah sakit ditetapkan; hal yang belum diatur dituangkan dalam petunjuk teknis", "Pasal 11 ayat (2) huruf d dan e; Pasal 14; Pasal 18 ayat (3)", "Periksa penetapan matriks (Lampiran 3A/3B), selera risiko rumah sakit, dan petunjuk teknis."],
+  ["RS", "I11", "Tinjauan manajemen atas kerangka manajemen risiko dilakukan paling sedikit 1 kali setahun", "Pasal 16 ayat (3)", "Periksa notulen dan tindak lanjut tinjauan manajemen."],
+  ["L1", "II1", "Konteks unit lengkap: sasaran, proses bisnis, dan pemangku kepentingan", "Pasal 11 ayat (2); Lampiran 1", "Bandingkan Lampiran 1 unit dengan Renstra dan indikator mutu unit."],
+  ["L1", "II2", "Selera risiko unit ditetapkan (kalimat dan angka) dan selaras dengan selera risiko rumah sakit", "Pasal 6 ayat (3) huruf b; Pasal 14", "Periksa Lampiran 1 bagian E dan bandingkan dengan selera risiko rumah sakit."],
+  ["L1", "II3", "Identifikasi risiko komprehensif: mencakup risiko klinis dan non-klinis serta dikategorikan", "Pasal 12 ayat (1) dan (2) huruf c", "Periksa sebaran kategori risiko di register terhadap proses bisnis unit."],
+  ["L1", "II4", "Identifikasi menggunakan teknik proaktif dan reaktif serta sumber risiko internal dan eksternal", "Pasal 12 ayat (2) huruf a dan b", "Periksa notulen curah pendapat/FMEA, analisis insiden, dan pertimbangan regulasi baru."],
+  ["L1", "II5", "Pernyataan risiko lengkap (peristiwa, penyebab, dampak) dan terdokumentasi di register", "Pasal 12 ayat (2) huruf d; Lampiran 4", "Uji kelengkapan setiap baris register risiko."],
+  ["L1", "II6", "Nilai kemungkinan (K) dan dampak (D) didukung data; risiko klinis mempertimbangkan keparahan cedera", "Pasal 13 ayat (1) dan (2); Lampiran 2", "Telusuri dasar K dan D ke data insiden, klaim, atau keluhan."],
+  ["L1", "II7", "Penurunan skor residu didukung bukti efektivitas pengendalian", "Pasal 13 ayat (3) huruf b; Pasal 8 ayat (3) huruf b", "Uji bukti efektivitas (misalnya hasil audit kepatuhan) untuk setiap risiko yang skor residunya turun."],
+  ["L1", "II8", "Akar masalah risiko Tinggi dan Sangat Tinggi dianalisis paling lama 45 hari", "Pasal 13 ayat (3) huruf a; Lampiran 3B dan Lampiran 6", "Periksa kelengkapan RCA (5 Why, fishbone, akar penyebab, rekomendasi) dan ketepatan waktunya."],
+  ["L1", "II9", "Risiko dievaluasi terhadap selera dan divalidasi UMR", "Pasal 13 ayat (4) dan (5); Pasal 7 ayat (3) huruf c", "Periksa status validasi dan penetapan prioritas di register."],
+  ["L1", "II10", "Seluruh risiko prioritas (di atas selera) memiliki RTP", "Pasal 15 ayat (1)", "Cocokkan daftar risiko prioritas dengan daftar RTP."],
+  ["L1", "II11", "RTP memuat akar penyebab, kegiatan, penanggung jawab, indikator, target waktu, dan estimasi tingkat risiko setelah tindakan", "Pasal 15 ayat (3); Lampiran 5", "Uji kelengkapan enam unsur pada setiap RTP."],
+  ["L1", "II12", "Estimasi tingkat risiko setelah tindakan berada di bawah selera risiko unit", "Pasal 15 ayat (1)", "Bandingkan target level RTP dengan selera unit."],
+  ["L1", "II13", "RTP disusun dan disahkan oleh Pemilik Risiko", "Pasal 6 ayat (3) huruf c", "Periksa bukti pengesahan RTP dan persetujuan RCA oleh Pemilik Risiko."],
+  ["L1", "II14", "Implementasi RTP dipantau, didukung bukti, dan tidak terlambat", "Pasal 16 ayat (1); Lampiran 7", "Uji catatan pelaksanaan dan bukti (dokumen, daftar hadir) serta realisasi triwulan."],
+  ["L1", "II15", "Pengendalian atas risiko kunci efektif (indikator keberhasilan tercapai)", "Pasal 8 ayat (3) huruf b; Pasal 16 ayat (1)", "Bandingkan capaian indikator dengan target pada realisasi triwulan."],
+  ["L1", "II16", "Risiko klinis prioritas tinggi dinilai ulang setiap 6 bulan atau segera bila terjadi perubahan signifikan", "Pasal 10 ayat (3)", "Periksa tanggal validasi dan riwayat penilaian ulang."],
+  ["L1", "II17", "Perubahan konteks yang dapat memunculkan risiko baru dipantau", "Pasal 16 ayat (2)", "Periksa pembaruan register setelah perubahan layanan, regulasi, atau insiden besar."],
+  ["L1", "II18", "Insiden dicatat dan dikaitkan dengan register risiko", "Pasal 4 ayat (2) huruf a; Pasal 17 ayat (5); Lampiran 8", "Bandingkan catatan peristiwa dengan laporan insiden ke Komite Mutu."],
+  ["L1", "II19", "Kejadian sentinel dan kejadian risiko signifikan dilaporkan paling lambat 1×24 jam kepada Direktur dan UMR", "Pasal 17 ayat (2) huruf c", "Uji selisih waktu kejadian dan waktu lapor."],
+  ["L1", "II20", "KTD dan Sentinel dilaporkan ke Kementerian Kesehatan melalui e-report", "Pasal 17 ayat (4) dan (5)", "Cocokkan daftar KTD/Sentinel dengan bukti pelaporan e-report."],
+  ["L1", "II21", "Laporan penerapan manajemen risiko unit disusun dan dikirim setiap triwulan", "Pasal 6 ayat (3) huruf d; Pasal 17 ayat (2) huruf a dan ayat (3); Lampiran 9", "Periksa laporan triwulan yang telah jatuh tempo dan reviu UMR."],
+  ["L1", "II22", "Temuan dan rekomendasi SPI sebelumnya ditindaklanjuti", "Pasal 8 ayat (3) huruf c", "Periksa status tanggapan dan hasil verifikasi temuan sebelumnya."],
+  ["L2", "III1", "Kebijakan, pedoman, dan alat bantu manajemen risiko tersedia dan mutakhir", "Pasal 7 ayat (3) huruf a", "Periksa pedoman, petunjuk teknis, dan templat yang berlaku."],
+  ["L2", "III2", "Penilaian risiko dan RTP seluruh unit dipantau", "Pasal 7 ayat (3) huruf b; Pasal 16 ayat (1)", "Periksa lama antrean validasi dan tindak lanjut UMR atas RTP terlambat."],
+  ["L2", "III3", "Usulan risiko divalidasi dengan daftar periksa", "Pasal 7 ayat (3) huruf c", "Uji daftar periksa validasi pada risiko tervalidasi."],
+  ["L2", "III4", "Umpan balik dan reviu diberikan atas laporan unit", "Pasal 7 ayat (3) huruf d", "Periksa reviu UMR atas laporan triwulan unit."],
+  ["L2", "III5", "Risiko Sangat Tinggi dieskalasi ke Direktur", "Lampiran 3B", "Periksa nota dinas eskalasi dan arahan Direktur."],
+  ["L2", "III6", "Laporan konsolidasi profil risiko rumah sakit disampaikan kepada Direktur", "Pasal 7 ayat (3) huruf e; Pasal 17 ayat (2) huruf b; Lampiran 10", "Periksa laporan konsolidasi triwulan yang telah jatuh tempo."],
+  ["L2", "III7", "Sosialisasi dan pelatihan manajemen risiko diselenggarakan", "Pasal 7 ayat (3) huruf f", "Periksa jadwal, daftar hadir, dan materi sosialisasi/pelatihan."],
+].map(([area, id, k, acuan, p]) => ({ area, id, k, acuan, p }));
 /* ========== State ========== */
-const COLS = ["units", "risks", "rtps", "events", "reports", "audits", "members", "roles", "tanggapan", "reviu"];
+const COLS = ["units", "risks", "rtps", "events", "reports", "audits", "members", "roles", "tanggapan", "reviu", "kka"];
 const S = { cfg: { tahun: TODAY.getFullYear(), acuan: "3B", seleraDefault: 12 }, view: "dashboard", mode: "loading", readOnly: false, me: { id: null, role: null, unitId: null, isOwner: false, name: "", email: "", avatar: "" }, profiles: {}, f: {}, reg: {}, ui: {} };
 COLS.forEach((c) => (S[c] = {}));
 S.riwayatLocal = [];
@@ -455,6 +514,10 @@ async function loadTable(c) {
   } else if (c === "config") {
     const rows = await fetchAll("config", "id,data"); const m = rows.find((r) => r.id === "main");
     S.cfg = Object.assign({}, CFG_DEFAULT, m ? m.data : {});
+  } else if (c === "kka") {
+    // Tabel KKA ditambahkan pada versi 3. Bila skrip SQL terbaru belum dijalankan, aplikasi tetap berjalan.
+    try { const rows = await fetchAll(c, "id,data"); const o = {}; rows.forEach((r) => (o[r.id] = r.data)); S.kka = o; S.ui.kkaMissing = false; }
+    catch (e) { S.kka = {}; S.ui.kkaMissing = true; }
   } else {
     const rows = await fetchAll(c, "id,data"); const o = {}; rows.forEach((r) => (o[r.id] = r.data)); S[c] = o;
   }
@@ -1032,8 +1095,79 @@ function vValidasi() {
   return h;
 }
 
+/* ========== Kriteria audit: bukti dari sistem ========== */
+function kkaCtx(jenis, unitId, tahun) {
+  const inUnit = (u) => jenis !== "L1" || u === unitId;
+  return {
+    jenis, unitId, tahun: +tahun, k: jenis === "L1" ? konteks(unitId, tahun) : null,
+    rs: Object.entries(S.risks).filter(([, r]) => +r.tahun === +tahun && inUnit(r.unitId)),
+    rt: Object.entries(S.rtps).filter(([, x]) => S.risks[x.riskId] && +S.risks[x.riskId].tahun === +tahun && inUnit(x.unitId)),
+    ev: Object.entries(S.events).filter(([, e]) => new Date(e.waktuKejadian).getFullYear() === +tahun && inUnit(e.unitId)),
+    keys: [1, 2, 3, 4].map((q) => pkey(tahun, q)).filter((k) => pend(k) < TODAY),
+  };
+}
+const ratio = (a, b, what) => b ? `${a} dari ${b} ${what} (${pct(a, b)}%)` : `Tidak ada ${what}`;
+const saranOf = (a, b) => (b ? (a === b ? "S" : a > 0 ? "SB" : "TS") : "TB");
+function kkaAuto(c, x) {
+  const { rs, rt, ev, k, keys } = x, manual = (t) => ({ text: t || "Diperiksa manual oleh auditor.", saran: null });
+  switch (c.id) {
+    case "I1": { const n = Object.values(S.events).filter((e) => new Date(e.waktuKejadian).getFullYear() === x.tahun); const a = n.filter((e) => e.riskId && S.risks[e.riskId]).length; return { text: ratio(a, n.length, "peristiwa yang dikaitkan dengan register risiko"), saran: n.length ? saranOf(a, n.length) : null }; }
+    case "I2": { const u = unitsSorted(); const a = u.filter(([id]) => (konteks(id, x.tahun)?.proses || []).length).length; return { text: ratio(a, u.length, "unit yang mencantumkan proses bisnis di konteks"), saran: saranOf(a, u.length) }; }
+    case "I6": { const u = unitsSorted(); const roles = Object.values(S.roles); const a = u.filter(([id, uu]) => uu.pemilik && roles.some((r) => r.role === "L1" && r.unitId === id)).length; const l2 = roles.filter((r) => r.role === "L2").length, l3 = roles.filter((r) => r.role === "L3").length; return { text: `${ratio(a, u.length, "unit dengan Pemilik Risiko dan pengguna Lini 1 aktif")}. Pengguna UMR aktif: ${l2}. Pengguna SPI aktif: ${l3}.`, saran: u.length ? (a === u.length && l2 && l3 ? "S" : a || l2 ? "SB" : "TS") : "TB" }; }
+    case "I7": { const u = unitsSorted(); const a = u.filter(([id]) => konteks(id, x.tahun) && Object.values(S.risks).some((r) => r.unitId === id && +r.tahun === x.tahun)).length; return { text: ratio(a, u.length, "unit yang mengisi konteks dan register risiko di SIM-Risiko"), saran: saranOf(a, u.length) }; }
+    case "I8": { const all = Object.values(S.rtps); return manual(`${all.filter((t) => t.anggaran).length} dari ${all.length} RTP mencantumkan sumber daya/anggaran. Periksa RKA unit dan RBA rumah sakit.`); }
+    case "I9": { const r = Object.values(S.risks).filter((y) => +y.tahun === x.tahun && ["Hukum", "Keuangan"].includes(y.kategori)).length; return manual(`${r} risiko berkategori hukum atau keuangan di register. Periksa register klaim dan somasi.`); }
+    case "I10": return manual(`Acuan level yang digunakan: Lampiran ${S.cfg.acuan}; selera bawaan ≤ ${S.cfg.seleraDefault}. Periksa penetapan resmi dan petunjuk teknis.`);
+    case "II1": { const p = [k?.visi, (k?.sasaran || []).length, (k?.proses || []).length, (k?.stakeholder || []).length]; const a = p.filter(Boolean).length; return { text: k ? `Bagian terisi: visi-misi ${p[0] ? "✓" : "✗"}, sasaran ${p[1] || 0}, proses bisnis ${p[2] || 0}, pemangku kepentingan ${p[3] || 0}.` : `Konteks tahun ${x.tahun} belum diisi.`, saran: !k ? "TS" : a === 4 ? "S" : a >= 2 ? "SB" : "TS" }; }
+    case "II2": { const s = k?.selera || {}; const longgar = s.maks && +s.maks > +S.cfg.seleraDefault; return { text: k ? `Selera: ${s.kalimat ? "kalimat ✓" : "kalimat ✗"}, batas angka ${s.maks ? "≤ " + s.maks : "✗"}${longgar ? `; lebih longgar dari selera bawaan rumah sakit (≤ ${S.cfg.seleraDefault})` : ""}.` : "Konteks belum diisi.", saran: !k ? "TS" : s.kalimat && s.maks && !longgar ? "S" : s.maks || s.kalimat ? "SB" : "TS" }; }
+    case "II3": { const cats = [...new Set(rs.map(([, r]) => r.kategori).filter(Boolean))]; const kl = cats.includes("Klinis"), nk = cats.some((c2) => c2 !== "Klinis"); return { text: rs.length ? `${rs.length} risiko; kategori: ${cats.join(", ") || "–"}.` : "Belum ada risiko teridentifikasi.", saran: !rs.length ? "TS" : kl && nk ? "S" : "SB" }; }
+    case "II4": { const a = ev.filter(([, e]) => e.riskId).length; return manual(`${rs.length} risiko teridentifikasi; ${a} peristiwa dikaitkan ke risiko (identifikasi reaktif). Periksa bukti teknik proaktif.`); }
+    case "II5": { const a = rs.filter(([, r]) => r.peristiwa && r.penyebab && r.dampak && r.kategori && r.sasaran).length; return { text: ratio(a, rs.length, "risiko dengan peristiwa, penyebab, dampak, kategori, dan sasaran lengkap"), saran: saranOf(a, rs.length) }; }
+    case "II6": { const a = rs.filter(([, r]) => r.dasarK && r.dasarD).length; return { text: ratio(a, rs.length, "risiko dengan dasar K dan D tertulis"), saran: saranOf(a, rs.length) }; }
+    case "II7": { const t = rs.filter(([, r]) => res(r) < inh(r)); const a = t.filter(([, r]) => r.bukti && r.efektivitas && r.efektivitas !== "Tidak efektif").length; return { text: t.length ? ratio(a, t.length, "risiko dengan penurunan residu yang didukung bukti") : "Tidak ada risiko dengan penurunan skor residu.", saran: saranOf(a, t.length) }; }
+    case "II8": { const t = rs.filter(([, r]) => needsRCA(r)); const a = t.filter(([, r]) => rcaState(r) === "ok").length, late = t.filter(([, r]) => rcaState(r) === "late").length; return { text: t.length ? `${ratio(a, t.length, "risiko Tinggi/Sangat Tinggi dengan RCA selesai")}; ${late} lewat batas 45 hari.` : "Tidak ada risiko residu Tinggi/Sangat Tinggi.", saran: !t.length ? "TB" : late ? (a ? "SB" : "TS") : a === t.length ? "S" : "SB" }; }
+    case "II9": { const a = rs.filter(([, r]) => r.status === "Tervalidasi").length; return { text: ratio(a, rs.length, "risiko tervalidasi UMR"), saran: saranOf(a, rs.length) }; }
+    case "II10": { const t = rs.filter(([, r]) => isPrio(r)); const a = t.filter(([id]) => riskRtps(id).length).length; return { text: t.length ? ratio(a, t.length, "risiko prioritas yang memiliki RTP") : "Tidak ada risiko prioritas.", saran: saranOf(a, t.length) }; }
+    case "II11": { const a = rt.filter(([, t]) => t.akar && t.kegiatan && t.pj && t.indikator && t.target && t.Kt && t.Dt).length; return { text: ratio(a, rt.length, "RTP dengan enam unsur lengkap"), saran: saranOf(a, rt.length) }; }
+    case "II12": { const a = rt.filter(([, t]) => { const r = S.risks[t.riskId]; return tgt(t) && tgt(t) <= seleraMaks(r.unitId, r.tahun); }).length; return { text: ratio(a, rt.length, "RTP dengan target level di bawah selera"), saran: saranOf(a, rt.length) }; }
+    case "II13": { const a = rs.filter(([, r]) => r.rca?.disetujui).length; return manual(`${a} RCA tercatat disetujui Pemilik Risiko. Periksa bukti pengesahan RTP.`); }
+    case "II14": { const a = rt.filter(([, t]) => (t.impl || []).some((l) => l.bukti)).length, late = rt.filter(([, t]) => rtpStatus(t) === "Terlambat").length; return { text: rt.length ? `${ratio(a, rt.length, "RTP dengan catatan pelaksanaan berbukti")}; ${late} RTP terlambat.` : "Tidak ada RTP.", saran: !rt.length ? "TB" : a === rt.length && !late ? "S" : a ? "SB" : "TS" }; }
+    case "II15": { const m = rt.flatMap(([, t]) => Object.values(t.monitor || {})).filter((y) => y.efektif && !y.efektif.startsWith("Belum dapat")); const a = m.filter((y) => y.efektif.startsWith("Efektif")).length; return { text: m.length ? ratio(a, m.length, "penilaian triwulan yang menyatakan efektif") : "Belum ada penilaian efektivitas pada realisasi triwulan.", saran: m.length ? saranOf(a, m.length) : "TB" }; }
+    case "II16": { const lim = 183 * 864e5; const t = rs.filter(([, r]) => r.kategori === "Klinis" && r.status === "Tervalidasi" && lvl(res(r)).i >= 3); const ok = t.filter(([, r]) => { const last = (r.penilaian || []).map((p) => p.tanggal).sort().pop(); const base = last || r.validatedAt; return base && TODAY - new Date(base) <= lim; }).length; return { text: t.length ? ratio(ok, t.length, "risiko klinis prioritas tinggi yang dinilai atau divalidasi dalam 6 bulan terakhir") : "Tidak ada risiko klinis residu Tinggi/Sangat Tinggi yang tervalidasi.", saran: saranOf(ok, t.length) }; }
+    case "II17": return manual(`${rs.length} risiko tercatat untuk tahun ${x.tahun}. Periksa pembaruan register setelah perubahan konteks.`);
+    case "II18": { const a = ev.filter(([, e]) => e.riskId && S.risks[e.riskId]).length; return { text: ev.length ? ratio(a, ev.length, "peristiwa yang dikaitkan dengan risiko") : "Tidak ada peristiwa tercatat; pastikan memang tidak ada kejadian.", saran: ev.length ? saranOf(a, ev.length) : null }; }
+    case "II19": { const t = ev.filter(([, e]) => wajib24(e)); const a = t.filter(([, e]) => ok24(e)).length; return { text: t.length ? ratio(a, t.length, "sentinel/kejadian signifikan yang dilaporkan ≤ 1×24 jam") : "Tidak ada sentinel atau kejadian signifikan.", saran: saranOf(a, t.length) }; }
+    case "II20": { const t = ev.filter(([, e]) => wajibSIK(e)); const a = t.filter(([, e]) => e.sik === "Ya").length; return { text: t.length ? ratio(a, t.length, "KTD/Sentinel yang dilaporkan ke e-report") : "Tidak ada KTD atau Sentinel.", saran: saranOf(a, t.length) }; }
+    case "II21": { const a = keys.filter((kk) => ["Dikirim", "Diterima UMR"].includes(reportState(x.unitId, kk))).length; return { text: keys.length ? ratio(a, keys.length, "laporan triwulan jatuh tempo yang telah dikirim") : "Belum ada triwulan yang jatuh tempo.", saran: saranOf(a, keys.length) }; }
+    case "II22": { const t = Object.entries(S.audits).filter(([, a]) => a.unitId === x.unitId && !a.kkaId); const a = t.filter(([id, au]) => ["Selesai", "Menunggu verifikasi"].includes(auditStatus(id, au))).length; return { text: t.length ? ratio(a, t.length, "temuan SPI yang telah ditindaklanjuti") : "Belum ada temuan SPI sebelumnya.", saran: saranOf(a, t.length) }; }
+    case "III2": { const lama = rs.filter(([, r]) => r.status === "Diajukan" && TODAY - new Date(r.updatedAt || r.createdAt) > 14 * 864e5).length; const late = rt.filter(([, t]) => rtpStatus(t) === "Terlambat").length; return { text: `${lama} risiko menunggu validasi lebih dari 14 hari; ${late} RTP terlambat di seluruh unit.`, saran: lama ? "SB" : "S" }; }
+    case "III3": { const v = rs.filter(([, r]) => r.status === "Tervalidasi"); const a = v.filter(([, r]) => r.cekUMR && CEK_UMR.every(([kk]) => r.cekUMR[kk])).length; return { text: ratio(a, v.length, "risiko tervalidasi dengan daftar periksa lengkap"), saran: saranOf(a, v.length) }; }
+    case "III4": { const sent = Object.entries(S.reports).filter(([, r]) => r.unitId !== "UMR" && r.status === "Dikirim" && String(r.periode || "").startsWith(x.tahun + "-")); const a = sent.filter(([, r]) => reviuOf(r.unitId, r.periode)).length; return { text: ratio(a, sent.length, "laporan unit terkirim yang sudah direviu UMR"), saran: saranOf(a, sent.length) }; }
+    case "III5": { const t = rs.filter(([, r]) => lvl(res(r)).i === 4); const a = t.filter(([, r]) => r.eskalasi).length; return { text: t.length ? ratio(a, t.length, "risiko Sangat Tinggi yang dieskalasi") : "Tidak ada risiko Sangat Tinggi.", saran: saranOf(a, t.length) }; }
+    case "III6": { const a = keys.filter((kk) => S.reports[`UMR_${kk}`]?.status === "Dikirim").length; return { text: keys.length ? ratio(a, keys.length, "laporan konsolidasi triwulan jatuh tempo yang telah dikirim") : "Belum ada triwulan yang jatuh tempo.", saran: saranOf(a, keys.length) }; }
+    default: return manual();
+  }
+}
+function kkaScore(items, list) {
+  let got = 0, max = 0, belum = 0;
+  list.forEach((c) => { const n = items?.[c.id]?.nilai; if (!n) belum++; else if (n !== "TB") { got += NSKOR[n]; max += 2; } });
+  const s = max ? Math.round((got / max) * 100) : null;
+  return { s, got, max, belum, pred: s === null ? "–" : s >= 85 ? "Memadai" : s >= 70 ? "Cukup memadai" : s >= 50 ? "Kurang memadai" : "Tidak memadai" };
+}
+const kkaList = (jenis) => KKA.filter((c) => c.area === jenis);
+const kkaSasaran = (x) => (x.jenis === "L1" ? unitName(x.unitId) : KKA_JENIS[x.jenis]);
+const nilaiTag = (n) => (n ? `<span class="tag ${n === "S" ? "ok" : n === "TS" ? "bad" : n === "SB" ? "warn" : ""}">${NILAI[n]}</span>` : `<span class="tag">Belum dinilai</span>`);
+const predTag = (sc) => `<span class="tag ${sc.s === null ? "" : sc.s >= 85 ? "ok" : sc.s >= 70 ? "" : sc.s >= 50 ? "warn" : "bad"}">${sc.s === null ? "Belum dinilai" : `${sc.s}% · ${sc.pred}`}</span>`;
+
 /* ========== VIEW: SPI (Lini 3) ========== */
 function vSPI() {
+  const tab = S.ui.spiTab || "ringkasan";
+  const tabs = `<div class="tabs" role="tablist">${[["ringkasan", "Indeks kepatuhan dan temuan"], ["kriteria", "Kriteria audit"], ["kka", "Kertas kerja audit (KKA)"]].map(([k, l]) => `<button role="tab" data-act="spitab" data-id="${k}" aria-selected="${tab === k}">${l}</button>`).join("")}</div>`;
+  if (tab === "kriteria") return vKriteria(tabs);
+  if (tab === "kka") return vKKA(tabs);
+  return tabs + vSPIRingkasan();
+}
+function vSPIRingkasan() {
   const key = pkey(S.f.tahun, S.f.tw);
   let h = head("Pengawasan SPI (Lini 3)", `Penilaian independen atas proses manajemen risiko Lini 1 dan Lini 2 (Pasal 8). Indeks kepatuhan dihitung otomatis per ${plabel(key)}.`, `<div class="row">${filterBar()}${canAudit() ? `<button class="btn pri" data-act="newaudit">Catat temuan</button>` : ""}</div>`);
   const units = unitsSorted().filter(([id]) => unitFilterOk(id));
@@ -1068,6 +1202,38 @@ function auditTable(list, mode) {
 function pendingRequests() { return Object.entries(S.members).filter(([id, m]) => { const r = S.roles[id]; return m?.role && (!r || r.role !== m.role || (r.unitId || "") !== (m.unitId || "")) && (!r || !m.requestedAt || !r.approvedAt || m.requestedAt > r.approvedAt); }); }
 
 /* ========== VIEW: Temuan SPI untuk unit (Lini 1) ========== */
+function vKriteria(tabs) {
+  let h = head("Kriteria audit penerapan manajemen risiko", "Acuan Satuan Pengawasan Internal untuk menilai penerapan Peraturan Direktur No. 266 Tahun 2026 di setiap lini. Kriteria ini dipakai pada Kertas Kerja Audit (KKA) dan dapat dicetak sebagai formulir kosong untuk pemeriksaan lapangan.", `<div class="row"><button class="btn" data-act="printkriteria">Cetak daftar kriteria</button></div>`) + tabs;
+  h += `<div class="panel" style="margin-bottom:14px"><h2>Skala penilaian</h2><div class="tablewrap"><table><thead><tr><th>Penilaian</th><th>Nilai</th><th>Arti</th></tr></thead><tbody>
+    <tr><td>${nilaiTag("S")}</td><td class="num">2</td><td>Kriteria terpenuhi seluruhnya dan didukung bukti</td></tr>
+    <tr><td>${nilaiTag("SB")}</td><td class="num">1</td><td>Kriteria terpenuhi sebagian, atau bukti belum lengkap</td></tr>
+    <tr><td>${nilaiTag("TS")}</td><td class="num">0</td><td>Kriteria tidak terpenuhi</td></tr>
+    <tr><td>${nilaiTag("TB")}</td><td class="num">–</td><td>Kriteria tidak relevan pada periode audit; tidak dihitung</td></tr></tbody></table></div>
+    <p class="small muted" style="margin:8px 0 0">Skor = jumlah nilai ÷ (2 × jumlah kriteria yang dinilai) × 100%. Predikat: ≥ 85% Memadai, 70–84% Cukup memadai, 50–69% Kurang memadai, &lt; 50% Tidak memadai.</p></div>`;
+  ["RS", "L1", "L2"].forEach((j) => {
+    const list = kkaList(j);
+    h += `<div class="panel" style="margin-bottom:14px"><div class="row"><h2 style="margin:0">${esc(KKA_AREA[j])}</h2><span class="tag">${list.length} kriteria</span><span class="spacer"></span><button class="btn sm" data-act="printblank" data-id="${j}">Cetak formulir kosong</button>${canAudit() ? `<button class="btn sm pri" data-act="newkka" data-id="${j}">Buat KKA</button>` : ""}</div>
+      <p class="small muted" style="margin:6px 0 10px">Sasaran audit: ${esc(KKA_JENIS[j])}.</p>
+      <div class="tablewrap"><table><thead><tr><th>No</th><th style="min-width:280px">Kriteria</th><th style="min-width:180px">Acuan</th><th style="min-width:260px">Prosedur audit dan bukti yang diperiksa</th></tr></thead><tbody>${list.map((c) => `<tr><td>${c.id}</td><td>${esc(c.k)}</td><td>${esc(c.acuan)}</td><td>${esc(c.p)}</td></tr>`).join("")}</tbody></table></div></div>`;
+  });
+  return h;
+}
+function vKKA(tabs) {
+  let h = head("Kertas kerja audit (KKA)", `Penilaian penerapan manajemen risiko per sasaran audit, tahun ${S.f.tahun}. Hasil pemeriksaan sistem terisi otomatis sebagai bukti awal; auditor menetapkan penilaian akhir, bukti yang diperiksa, dan catatan.`, `<div class="row">${filterBar({ tw: false, unit: false })}${canAudit() ? `<button class="btn pri" data-act="newkka" data-id="">Buat KKA</button>` : ""}</div>`) + tabs;
+  if (S.ui.kkaMissing) h += `<div class="banner" style="margin-bottom:14px"><b>Tabel KKA belum tersedia di database.</b> Jalankan ulang skrip <code>01_skema_simrisiko.sql</code> versi terbaru di Supabase SQL Editor, lalu muat ulang halaman. Fitur lain tetap dapat digunakan.</div>`;
+  const list = Object.entries(S.kka).filter(([, x]) => +x.tahun === +S.f.tahun).sort((a, b) => String(b[1].tglMulai || b[1].createdAt).localeCompare(String(a[1].tglMulai || a[1].createdAt)));
+  if (!list.length) return h + emptyBox("Belum ada KKA untuk tahun ini", "Buat KKA untuk unit kerja, UMR, atau tata kelola rumah sakit. Formulir kosong dapat dicetak dari tab Kriteria audit.", canAudit() ? `<button class="btn pri" data-act="newkka" data-id="">Buat KKA</button>` : "");
+  return h + `<div class="tablewrap"><table><thead><tr><th>Nomor</th><th>Sasaran audit</th><th>Jenis</th><th>Tanggal</th><th>Auditor</th><th>Skor dan predikat</th><th>Belum dinilai</th><th>Temuan</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${list.map(([id, x]) => {
+    const sc = kkaScore(x.items, kkaList(x.jenis)), nt = Object.values(S.audits).filter((a) => a.kkaId === id).length;
+    const b = [btnA("viewkka", id, "Lihat")];
+    if (canAudit()) b.push(btnA("editkka", id, "Ubah"));
+    b.push(btnA("printkka", id, "Cetak"), btnA("dlkka", id, "Unduh"));
+    if (canAudit()) b.push(btnA("delkka", id, "Hapus", { danger: true }));
+    b.push(riwBtn("kka", id, `KKA ${x.nomor || kkaSasaran(x)}`));
+    return `<tr><td>${esc(x.nomor || "–")}</td><td><b>${esc(kkaSasaran(x))}</b></td><td>${esc(KKA_JENIS[x.jenis])}</td><td>${fmtDate(x.tglMulai)}${x.tglSelesai ? ` – ${fmtDate(x.tglSelesai)}` : ""}</td><td>${esc(x.auditor || "–")}</td><td>${predTag(sc)}</td><td class="num">${sc.belum}</td><td class="num">${nt}</td><td><span class="tag ${x.status === "Final" ? "ok" : "warn"}">${x.status === "Final" ? "Final" : "Draf"}</span></td><td><div class="acts">${b.join("")}</div></td></tr>`;
+  }).join("")}</tbody></table></div><p class="small muted">KKA hanya dapat dibuka oleh SPI dan admin. Kriteria yang dinilai Sebagian sesuai atau Tidak sesuai dapat dijadikan temuan dari tombol Lihat.</p>`;
+}
+
 function vTemuan() {
   let h = head("Temuan SPI untuk unit", "Temuan dan rekomendasi Satuan Pengawasan Internal untuk unit Anda. Kirim tanggapan, rencana tindak lanjut, target, dan bukti. SPI memverifikasi dan menutup temuan.", filterBar({ tw: false, unit: false }));
   if (!S.me.unitId) return h + emptyBox("Anda belum terhubung ke unit", "Peran Lini 1 Anda perlu memiliki unit kerja.");
@@ -1124,6 +1290,7 @@ function vGuide() {
     ["Masuk sebagai SPI", `<p>Pilih peran <b>Lini 3 · Satuan Pengawasan Internal</b>. SPI dapat membuka seluruh menu dan data semua lini, mengelola Pengaturan bersama admin, dan menyetujui peran pengguna.</p>`],
     ["Kelola pengguna dan unit", `<p>${M("Pengaturan")}: setujui atau cabut peran pengguna, tambah dan ubah unit kerja, dan tetapkan acuan penilaian (Lampiran 3A/3B serta selera bawaan).</p>`],
     ["Nilai kepatuhan proses", `<p>${M("Pengawasan SPI")}: matriks indeks kepatuhan per unit dengan 10 kriteria, termasuk implementasi RTP. Gunakan matriks ini untuk memilih unit yang perlu direviu lebih dalam.</p>`],
+    ["Audit dengan kriteria dan KKA", `<p>${M("Pengawasan SPI", "Kriteria audit")} berisi 40 kriteria berdasarkan pasal Perdir 266/2026: 11 kriteria tata kelola rumah sakit, 22 kriteria unit kerja (Lini 1), dan 7 kriteria UMR (Lini 2). Formulir kosong dapat dicetak untuk pemeriksaan lapangan.</p><p>${M("Kertas kerja audit (KKA)", "Buat KKA")}: pilih sasaran audit. Hasil pemeriksaan sistem terisi otomatis beserta saran nilai. Auditor menetapkan penilaian (Sesuai, Sebagian sesuai, Tidak sesuai, Tidak berlaku), bukti yang diperiksa, dan catatan. Skor dan predikat dihitung otomatis. Simpan sebagai <b>final</b>, lalu <b>Cetak formulir</b> untuk ditandatangani. Dari tombol <b>Lihat</b>, kriteria yang belum sesuai dapat langsung <b>dijadikan temuan</b>.</p>`],
     ["Catat temuan", `<p>${M("Pengawasan SPI", "Catat temuan")}. Templat berisi:</p><ol><li>Identitas: unit, aspek, risiko terkait, prioritas, dan batas waktu.</li><li><b>Kondisi</b>, <b>kriteria</b> (pasal acuan), <b>sebab</b>, <b>akibat</b>, dan <b>rekomendasi</b>.</li></ol>`],
     ["Verifikasi tindak lanjut", `<p>Setelah unit menanggapi, status menjadi <b>Menunggu verifikasi</b>. Pilih <b>Verifikasi</b>, isi tanggal, hasil (Memadai atau Belum memadai), dan catatan. Temuan hanya dapat ditutup (<b>Selesai</b>) bila hasilnya Memadai.</p>`],
     ["Jejak audit", `<p>${M("Jejak audit")}: seluruh perubahan data di semua lini, dengan pengubah, waktu, dan isi sebelum dan sesudah. Riwayat dicatat otomatis oleh basis data dan tidak dapat diubah atau dihapus oleh siapa pun, termasuk admin.</p>`],
@@ -1149,6 +1316,7 @@ function vGuide() {
   <tr><td>Laporan triwulan unit (Lamp. 9)</td><td>Menyusun, mengirim, memperbaiki</td><td>Membaca dan mereviu</td><td>Membaca</td></tr>
   <tr><td>Laporan konsolidasi (Lamp. 10)</td><td>Tidak dapat dibuka</td><td>Menyusun dan mengirim</td><td>Membaca</td></tr>
   <tr><td>Pengawasan SPI dan temuan</td><td>Hanya temuan unitnya, untuk ditanggapi</td><td>Tidak dapat dibuka</td><td>Mencatat, memverifikasi, menutup</td></tr>
+  <tr><td>Kriteria audit dan KKA</td><td>Tidak dapat dibuka</td><td>Tidak dapat dibuka</td><td>Menyusun, mencetak, dan menjadikan temuan</td></tr>
   <tr><td>Jejak audit</td><td>Riwayat data unitnya lewat tombol Riwayat</td><td>Riwayat data unit lewat tombol Riwayat</td><td>Seluruh perubahan semua lini</td></tr>
   <tr><td>Pengaturan</td><td>Tidak dapat dibuka</td><td>Tidak dapat dibuka</td><td>Unit, acuan, persetujuan peran (bersama admin)</td></tr>
   </tbody></table></div>
@@ -1803,8 +1971,8 @@ function openUMR(key) {
 }
 
 /* ---- Temuan SPI ---- */
-function openAudit(id, mode) {
-  const a = id ? S.audits[id] : { unitId: S.f.unit !== "all" ? S.f.unit : "", status: "Terbuka", prioritas: "Sedang", tahun: S.f.tahun };
+function openAudit(id, mode, prefill) {
+  const a = id ? S.audits[id] : Object.assign({ unitId: S.f.unit !== "all" ? S.f.unit : "", status: "Terbuka", prioritas: "Sedang", tahun: S.f.tahun }, prefill || {});
   if (!a) return;
   const spi = canAudit() && mode !== "view";
   const unitResp = !canAudit() && canEditUnit(a.unitId) && mode !== "view" && a.status !== "Selesai";
@@ -1857,8 +2025,129 @@ function openAudit(id, mode) {
       else delete o.verifikasi;
       if (!(await put("audits", id || uid(), o))) return false;
       toast(mode === "verif" ? "Verifikasi disimpan." : "Temuan disimpan.");
+      if (prefill && prefill.kkaId) { openKKAView(prefill.kkaId); return false; }
     } });
 }
+
+/* ---- Kertas kerja audit (Lini 3) ---- */
+function openKKANew(jenis) {
+  if (!canAudit()) return;
+  openModal("Buat kertas kerja audit", `<p class="small muted" style="margin-top:0">Pilih sasaran audit. Kriteria dan hasil pemeriksaan sistem disesuaikan dengan sasaran ini.</p>
+    ${fld("jenis", "Sasaran audit", jenis || "", { type: "select", req: true, opts: Object.entries(KKA_JENIS) })}
+    ${fld("unitId", "Unit kerja (untuk sasaran Lini 1)", "", { type: "select", opts: unitOpts() })}
+    <div class="fg fg2">${fld("tahun", "Tahun yang diaudit", S.f.tahun, { type: "number", req: true })}${fld("tglMulai", "Tanggal mulai audit", new Date().toISOString().slice(0, 10), { type: "date", req: true })}</div>`,
+    { buttons: [{ v: "save", t: "Lanjut ke kriteria", pri: true }],
+      onSave: async (v, f) => {
+        if (!f.jenis || !f.tahun || !f.tglMulai) { toast("Lengkapi kolom bertanda *."); return false; }
+        if (f.jenis === "L1" && !f.unitId) { toast("Pilih unit kerja yang diaudit."); return false; }
+        openKKA(null, { jenis: f.jenis, unitId: f.jenis === "L1" ? f.unitId : f.jenis, tahun: +f.tahun, tglMulai: f.tglMulai, status: "Draf", items: {}, auditor: S.me.name || "" });
+        return false;
+      } });
+}
+function openKKA(id, base) {
+  const x = id ? S.kka[id] : base; if (!x || !canAudit()) return;
+  const list = kkaList(x.jenis), ctx = kkaCtx(x.jenis, x.unitId, x.tahun), it = x.items || {};
+  const autos = Object.fromEntries(list.map((c) => [c.id, kkaAuto(c, ctx)]));
+  const body = `<div class="calc" style="margin-bottom:12px"><span><b>Sasaran:</b> ${esc(kkaSasaran(x))}</span><span><b>Tahun:</b> ${esc(x.tahun)}</span><span class="spacer"></span><span id="kkaScore"></span></div>
+    <fieldset class="fs"><legend>A. Identitas audit</legend>
+      <div class="fg fg3">${fld("nomor", "Nomor KKA", x.nomor, { ph: "KKA/SPI/MR/01/2026" })}${fld("tglMulai", "Tanggal mulai", x.tglMulai, { type: "date", req: true })}${fld("tglSelesai", "Tanggal selesai", x.tglSelesai, { type: "date" })}</div>
+      <div class="fg fg2">${fld("auditor", "Auditor (penyusun KKA)", x.auditor, { req: true })}${fld("tim", "Anggota tim audit", x.tim)}</div>
+      ${fld("auditi", "Auditi / pejabat yang ditemui", x.auditi, { ph: x.jenis === "L1" ? S.units[x.unitId]?.pemilik || "" : x.jenis === "L2" ? "Koordinator UMR" : "Direktur / Ketua Komite Mutu" })}
+    </fieldset>
+    <div class="row" style="margin:4px 0 10px"><h3 style="margin:0">B. ${esc(KKA_AREA[x.jenis])}</h3><span class="spacer"></span><button type="button" class="btn sm" id="kkaApply">Terapkan saran sistem pada kriteria yang belum dinilai</button></div>
+    ${list.map((c) => { const a = autos[c.id], v = it[c.id] || {}; return `<div class="kk"><div class="kk-h"><b>${c.id}. ${esc(c.k)}</b><span class="tag">${esc(c.acuan)}</span></div>
+      <div class="small muted" style="margin-top:4px">Prosedur: ${esc(c.p)}</div>
+      <div class="kk-sys"><b>Hasil pemeriksaan sistem:</b> ${esc(a.text)} ${a.saran ? `· saran ${nilaiTag(a.saran)}` : `· <span class="muted">penilaian manual</span>`}</div>
+      <div class="kk-g"><select name="n_${c.id}" data-saran="${a.saran || ""}" aria-label="Penilaian ${c.id}"><option value="">Belum dinilai</option>${Object.entries(NILAI).map(([k, l]) => `<option value="${k}" ${v.nilai === k ? "selected" : ""}>${l}</option>`).join("")}</select>
+      <input type="text" name="b_${c.id}" value="${esc(v.bukti || "")}" placeholder="Dokumen/bukti yang diperiksa" aria-label="Bukti ${c.id}">
+      <textarea name="c_${c.id}" placeholder="Catatan auditor / kondisi yang ditemukan" aria-label="Catatan ${c.id}">${esc(v.catatan || "")}</textarea></div></div>`; }).join("")}
+    <fieldset class="fs" style="margin-top:12px"><legend>C. Simpulan</legend>
+      ${fld("kesimpulan", "Kesimpulan audit", x.kesimpulan, { type: "textarea" })}
+      ${fld("rekomendasi", "Rekomendasi umum", x.rekomendasi, { type: "textarea" })}
+      ${fld("disetujui", "Direviu / disetujui oleh (Kepala SPI)", x.disetujui)}
+    </fieldset>`;
+  const links = id ? [{ act: "printkka", id, t: "Cetak" }, { act: "riwayat", id, t: "Riwayat", extra: ` data-t="kka" data-j="KKA ${esc(x.nomor || kkaSasaran(x))}"` }] : [];
+  openModal(`Kertas kerja audit · ${kkaSasaran(x)} ${x.tahun}`, body, { wide: true, links, buttons: [id ? { v: "del", t: "Hapus", danger: true } : null, { v: "save", t: "Simpan draf" }, { v: "final", t: "Simpan sebagai final", pri: true }],
+    after: (b) => {
+      const upd = () => { const items = Object.fromEntries(list.map((c) => [c.id, { nilai: b.querySelector(`[name="n_${c.id}"]`).value }])); $("#kkaScore", b).innerHTML = predTag(kkaScore(items, list)); };
+      b.addEventListener("change", upd); upd();
+      $("#kkaApply", b).addEventListener("click", () => { let n = 0; b.querySelectorAll("select[data-saran]").forEach((s) => { if (!s.value && s.dataset.saran) { s.value = s.dataset.saran; n++; } }); upd(); toast(n ? `${n} penilaian diisi dari saran sistem. Periksa kembali sebelum disimpan.` : "Tidak ada kriteria kosong yang memiliki saran sistem."); });
+    },
+    onSave: async (v, f) => {
+      if (v === "del") { $("#dlg").close(); await deleteKKA(id); return; }
+      if (!f.tglMulai || !f.auditor) { toast("Lengkapi kolom bertanda *."); return false; }
+      if (f.tglSelesai && f.tglSelesai < f.tglMulai) { toast("Tanggal selesai tidak boleh sebelum tanggal mulai."); return false; }
+      const items = Object.fromEntries(list.map((c) => [c.id, { nilai: f["n_" + c.id], bukti: f["b_" + c.id], catatan: f["c_" + c.id], sistem: autos[c.id].text, saran: autos[c.id].saran }]));
+      const sc = kkaScore(items, list);
+      if (v === "final" && sc.belum) { toast(`${sc.belum} kriteria belum dinilai. Lengkapi penilaian sebelum menyimpan sebagai final.`); return false; }
+      const o = Object.assign({}, x, { nomor: f.nomor, tglMulai: f.tglMulai, tglSelesai: f.tglSelesai, auditor: f.auditor, tim: f.tim, auditi: f.auditi, items, kesimpulan: f.kesimpulan, rekomendasi: f.rekomendasi, disetujui: f.disetujui, skor: sc.s, predikat: sc.pred, status: v === "final" ? "Final" : "Draf", createdAt: x.createdAt || new Date().toISOString(), by: x.by || S.me.id || "lokal" });
+      if (!(await put("kka", id || uid(), o))) return false;
+      toast(v === "final" ? `KKA disimpan sebagai final. Skor ${sc.s ?? "–"}% (${sc.pred}).` : "Draf KKA disimpan.");
+    } });
+}
+function openKKAView(id) {
+  const x = S.kka[id]; if (!x) return;
+  const list = kkaList(x.jenis), sc = kkaScore(x.items, list), it = x.items || {};
+  const done = (cid) => Object.entries(S.audits).find(([, a]) => a.kkaId === id && a.kkaCrit === cid);
+  const body = `${dlist([["Sasaran audit", esc(kkaSasaran(x))], ["Jenis", esc(KKA_JENIS[x.jenis])], ["Tahun", esc(x.tahun)], ["Nomor", esc(x.nomor || "–")], ["Tanggal", `${fmtDate(x.tglMulai)}${x.tglSelesai ? " – " + fmtDate(x.tglSelesai) : ""}`], ["Auditor / tim", esc([x.auditor, x.tim].filter(Boolean).join("; ") || "–")], ["Auditi", esc(x.auditi || "–")], ["Skor dan predikat", predTag(sc) + (sc.belum ? ` <span class="small muted">${sc.belum} kriteria belum dinilai</span>` : "")], ["Status", esc(x.status || "Draf")]])}
+    <div class="tablewrap"><table><thead><tr><th>No</th><th style="min-width:240px">Kriteria</th><th>Acuan</th><th style="min-width:200px">Hasil pemeriksaan sistem</th><th>Penilaian</th><th>Bukti diperiksa</th><th style="min-width:180px">Catatan auditor</th><th>Temuan</th></tr></thead><tbody>${list.map((c) => { const v = it[c.id] || {}, t = done(c.id); return `<tr><td>${c.id}</td><td>${esc(c.k)}</td><td class="small">${esc(c.acuan)}</td><td class="small">${esc(v.sistem || "–")}</td><td>${nilaiTag(v.nilai)}</td><td class="small">${esc(v.bukti || "–")}</td><td class="small">${esc(v.catatan || "–")}</td><td>${t ? `<span class="tag ok">${esc(auditStatus(t[0], t[1]))}</span>` : (v.nilai === "TS" || v.nilai === "SB") && x.jenis === "L1" && canAudit() ? btnA("kkatemuan", id, "Jadikan temuan", { extra: ` data-c="${c.id}"` }) : "–"}</td></tr>`; }).join("")}</tbody></table></div>
+    ${dlist([["Kesimpulan", esc(x.kesimpulan || "–")], ["Rekomendasi umum", esc(x.rekomendasi || "–")], ["Direviu oleh", esc(x.disetujui || "–")]])}`;
+  const links = [];
+  if (canAudit()) links.push({ act: "editkka", id, t: "Ubah" });
+  links.push({ act: "printkka", id, t: "Cetak formulir" }, { act: "dlkka", id, t: "Unduh" }, { act: "riwayat", id, t: "Riwayat", extra: ` data-t="kka" data-j="KKA ${esc(x.nomor || kkaSasaran(x))}"` });
+  openModal(`KKA · ${kkaSasaran(x)} ${x.tahun}`, body, { readOnly: true, wide: true, links });
+}
+function kkaToTemuan(id, cid) {
+  const x = S.kka[id], c = KKA.find((y) => y.id === cid); if (!x || !c) return;
+  const v = (x.items || {})[cid] || {};
+  openAudit(null, undefined, { unitId: x.unitId, aspek: cid === "II7" || cid === "II15" ? "Efektivitas pengendalian" : ["II19", "II20", "II21"].includes(cid) ? "Kepatuhan pelaporan" : ["II10", "II11", "II12", "II13", "II14"].includes(cid) ? "Kecukupan pengendalian" : "Proses manajemen risiko", kondisi: [v.catatan, v.sistem ? `Hasil pemeriksaan sistem: ${v.sistem}` : ""].filter(Boolean).join("\n"), kriteria: `${c.k} (${c.acuan})`, prioritas: v.nilai === "TS" ? "Tinggi" : "Sedang", status: "Terbuka", tahun: x.tahun, kkaId: id, kkaCrit: cid });
+}
+async function deleteKKA(id) {
+  const x = S.kka[id]; if (!x) return;
+  if (!confirm(`Hapus KKA ${x.nomor || kkaSasaran(x)}? Temuan yang sudah dibuat tidak ikut terhapus. Isi terakhirnya tetap tersimpan di riwayat.`)) return;
+  if (await del("kka", id)) toast("KKA dihapus.");
+}
+/* ---- Cetak formulir ---- */
+function printShell(title, inner) {
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>${esc(title)}</title><style>
+  @page{size:A4 landscape;margin:12mm}
+  body{font:10pt/1.4 "Times New Roman",serif;color:#000;margin:0 auto;padding:16px;max-width:1100px}
+  .kop{display:flex;gap:14px;align-items:center;border-bottom:3px double #000;padding-bottom:8px;margin-bottom:12px}.kop img{width:60px}.kop b{font-size:14pt}
+  h1{font-size:13pt;text-align:center;margin:6px 0 2px}h2{font-size:11pt;margin:14px 0 6px}.sub{text-align:center;margin:0 0 12px}
+  table{border-collapse:collapse;width:100%;margin:6px 0}th,td{border:1px solid #333;padding:4px 6px;text-align:left;vertical-align:top}th{background:#e8e8e8}
+  table.id td{border:0;padding:2px 6px}table.id td:first-child{width:200px}
+  .nil{white-space:nowrap;font-size:9pt}.blank td{height:56px}.area{background:#f3f3f3;font-weight:bold}
+  .ttd{display:flex;justify-content:space-between;margin-top:30px;text-align:center;page-break-inside:avoid}.ttd div{width:30%}
+  .noprint{margin:0 0 12px}@media print{.noprint{display:none}body{padding:0}}
+  tr{page-break-inside:avoid}</style></head><body><div class="noprint"><button onclick="window.print()">Cetak</button></div>
+  <div class="kop"><img alt="" src="${LOGO_SRC}"><div>PEMERINTAH KOTA SEMARANG<br><b>RUMAH SAKIT DAERAH K.R.M.T. WONGSONEGORO</b><br>SATUAN PENGAWASAN INTERNAL</div></div>${inner}</body></html>`;
+}
+function kkaDoc(x, jenis) {
+  const blank = !x; jenis = x ? x.jenis : jenis;
+  const list = kkaList(jenis), it = (x && x.items) || {}, sc = kkaScore(it, list), ln = "…………………………………………";
+  const box = (on) => (on ? "☑" : "☐");
+  const idt = `<table class="id"><tr><td>Nomor KKA</td><td>: ${blank ? ln : esc(x.nomor || "–")}</td></tr><tr><td>Sasaran audit</td><td>: ${blank ? (jenis === "L1" ? `Unit kerja ${ln}` : esc(KKA_JENIS[jenis])) : esc(kkaSasaran(x))}</td></tr><tr><td>Tahun / periode yang diaudit</td><td>: ${blank ? ln : esc(x.tahun)}</td></tr><tr><td>Tanggal pelaksanaan</td><td>: ${blank ? ln : `${fmtDate(x.tglMulai)}${x.tglSelesai ? " s.d. " + fmtDate(x.tglSelesai) : ""}`}</td></tr><tr><td>Auditor / tim</td><td>: ${blank ? ln : esc([x.auditor, x.tim].filter(Boolean).join("; "))}</td></tr><tr><td>Auditi</td><td>: ${blank ? ln : esc(x.auditi || "–")}</td></tr><tr><td>Acuan</td><td>: Peraturan Direktur RSD K.R.M.T Wongsonegoro Nomor 266 Tahun 2026 tentang Pedoman Manajemen Risiko</td></tr></table>`;
+  const rows = list.map((c) => { const v = it[c.id] || {}; return `<tr class="${blank ? "blank" : ""}"><td>${c.id}</td><td><b>${esc(c.k)}</b><br><i>${esc(c.acuan)}</i></td><td>${esc(c.p)}</td><td>${blank ? "" : esc(v.sistem || "")}</td><td class="nil">${["S", "SB", "TS", "TB"].map((n) => `${box(v.nilai === n)} ${NILAI[n]}`).join("<br>")}</td><td>${esc(v.bukti || "")}</td><td>${esc(v.catatan || "")}</td></tr>`; }).join("");
+  const sum = `<table style="width:60%"><tr><th>Jumlah kriteria</th><th>Sesuai</th><th>Sebagian sesuai</th><th>Tidak sesuai</th><th>Tidak berlaku</th><th>Skor</th><th>Predikat</th></tr><tr><td>${list.length}</td>${["S", "SB", "TS", "TB"].map((n) => `<td>${blank ? "" : list.filter((c) => it[c.id]?.nilai === n).length}</td>`).join("")}<td>${blank || sc.s === null ? "" : sc.s + "%"}</td><td>${blank ? "" : sc.pred}</td></tr></table>
+    <p style="font-size:9pt">Nilai: Sesuai = 2, Sebagian sesuai = 1, Tidak sesuai = 0, Tidak berlaku tidak dihitung. Skor = jumlah nilai ÷ (2 × jumlah kriteria dinilai) × 100%. Predikat: ≥ 85% Memadai; 70–84% Cukup memadai; 50–69% Kurang memadai; &lt; 50% Tidak memadai.</p>`;
+  const simp = `<h2>C. Simpulan</h2><table><tr><td style="width:200px">Kesimpulan audit</td><td style="height:${blank ? 60 : 0}px">${blank ? "" : esc(x.kesimpulan || "")}</td></tr><tr><td>Rekomendasi umum</td><td style="height:${blank ? 60 : 0}px">${blank ? "" : esc(x.rekomendasi || "")}</td></tr></table>`;
+  const ttd = `<p style="text-align:right;margin-top:16px">Semarang, ${blank ? "………………………" : fmtDate(x.tglSelesai || x.tglMulai)}</p><div class="ttd"><div>Auditi<br><br><br><br>${blank ? "(………………………………)" : esc(x.auditi || "(………………………………)")}</div><div>Disusun oleh<br>Auditor SPI<br><br><br>${blank ? "(………………………………)" : esc(x.auditor || "")}</div><div>Direviu oleh<br>Kepala SPI<br><br><br>${blank ? "(………………………………)" : esc(x.disetujui || "(………………………………)")}</div></div>`;
+  return printShell(`KKA ${blank ? "kosong" : x.nomor || kkaSasaran(x)}`, `<h1>KERTAS KERJA AUDIT PENERAPAN MANAJEMEN RISIKO</h1><p class="sub">${esc(KKA_AREA[jenis])}</p>${idt}
+    <h2>B. Kriteria dan hasil audit</h2><table><thead><tr><th style="width:36px">No</th><th style="width:24%">Kriteria dan acuan</th><th style="width:18%">Prosedur audit / bukti yang diperiksa</th><th style="width:16%">Hasil pemeriksaan sistem</th><th style="width:120px">Penilaian</th><th style="width:12%">Bukti/dokumen diperiksa</th><th>Catatan auditor</th></tr></thead><tbody>${rows}</tbody></table>
+    <h2>Rekapitulasi</h2>${sum}${simp}${ttd}`);
+}
+function kriteriaDoc() {
+  return printShell("Kriteria audit manajemen risiko", `<h1>KRITERIA AUDIT PENERAPAN MANAJEMEN RISIKO</h1><p class="sub">Acuan: Peraturan Direktur RSD K.R.M.T Wongsonegoro Nomor 266 Tahun 2026</p>
+    <table><thead><tr><th style="width:40px">No</th><th style="width:34%">Kriteria</th><th style="width:22%">Acuan</th><th>Prosedur audit dan bukti yang diperiksa</th></tr></thead><tbody>${["RS", "L1", "L2"].map((j) => `<tr class="area"><td colspan="4">${esc(KKA_AREA[j])}</td></tr>${kkaList(j).map((c) => `<tr><td>${c.id}</td><td>${esc(c.k)}</td><td>${esc(c.acuan)}</td><td>${esc(c.p)}</td></tr>`).join("")}`).join("")}</tbody></table>
+    <p>Skala penilaian: Sesuai (2), Sebagian sesuai (1), Tidak sesuai (0), Tidak berlaku (tidak dihitung).</p>`);
+}
+function printHtml(html, filename) {
+  const w = window.open("", "_blank");
+  if (!w) { toast("Jendela cetak diblokir browser. Izinkan pop-up untuk situs ini, atau gunakan Unduh."); if (filename) saveFile(filename, html); return; }
+  w.document.open(); w.document.write(html); w.document.close(); w.focus();
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 500);
+}
+const kkaFile = (x) => `KKA_${(x.nomor || kkaSasaran(x)).replace(/[^\w-]+/g, "_")}_${x.tahun}.html`;
 
 /* ========== Unduhan ========== */
 async function saveFile(filename, data) {
@@ -1940,6 +2229,14 @@ const ACT = {
   newaudit: () => openAudit(null), editaudit: (d) => openAudit(d.id), viewaudit: (d) => openAudit(d.id, "view"), verifaudit: (d) => openAudit(d.id, "verif"),
   delaudit: async (d) => { if (!confirm("Hapus temuan ini? Isi terakhirnya tetap tersimpan di riwayat.")) return; if (await del("audits", d.id)) toast("Temuan dihapus."); },
   deltanggapan: async (d) => { if (!confirm("Hapus tanggapan unit atas temuan ini?")) return; if (await del("tanggapan", d.id)) toast("Tanggapan dihapus."); },
+  // Kriteria audit dan KKA
+  spitab: (d) => { S.ui.spiTab = d.id; render(); },
+  newkka: (d) => openKKANew(d.id), editkka: (d) => openKKA(d.id), viewkka: (d) => openKKAView(d.id), delkka: (d) => deleteKKA(d.id),
+  printkka: (d) => { const x = S.kka[d.id]; if (x) printHtml(kkaDoc(x), kkaFile(x)); },
+  dlkka: (d) => { const x = S.kka[d.id]; if (x) saveFile(kkaFile(x), kkaDoc(x)); },
+  printblank: (d) => printHtml(kkaDoc(null, d.id), `KKA_kosong_${d.id}.html`),
+  printkriteria: () => printHtml(kriteriaDoc(), "Kriteria_audit_manajemen_risiko.html"),
+  kkatemuan: (d) => kkaToTemuan(d.id, d.c),
   // Jejak audit
   jejakload: () => { S.ui.jejak = null; render(); },
   jejakdetail: (d) => { const e = S.ui.jejak?.rows?.[+d.id]; if (e) openModal(`Rincian · ${TABEL_LABEL[e.tabel] || e.tabel}`, riwayatEntryHtml(e, true), { readOnly: true, wide: true }); },
