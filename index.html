@@ -198,6 +198,20 @@ dialog.wide{width:min(1100px,96vw)}
 .login .alt{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:13px}
 .login .alt a{cursor:pointer}
 .login .btn.pri{width:100%;margin-top:6px}
+.login .seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px;margin:0 0 14px}
+.login .seg button{all:unset;cursor:pointer;text-align:center;padding:8px;border-radius:7px;font-weight:600;font-size:14px;color:var(--ink-2)}
+.login .seg button[aria-pressed="true"]{background:var(--paper);color:var(--ink);box-shadow:var(--shadow)}
+.login .seg button:focus-visible{outline:2px solid var(--focus)}
+.amsg{border-radius:10px;padding:10px 12px;margin:12px 0 0;font-size:13.5px;line-height:1.5;border:1px solid var(--line);background:var(--surface)}
+.amsg.err{border-color:#E7A3A3;background:#FDEEEE;color:#7A1F1F}
+.amsg.ok{border-color:#9BCB9E;background:#EEF7EE;color:#1F5A23}
+.amsg .btn{margin-top:8px}
+.amsg ol,.login details ol{margin:6px 0 0;padding-left:18px}
+:root[data-theme="dark"] .amsg.err,:root[data-theme="dark"] .amsg.ok{background:transparent;color:inherit}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .amsg.err,:root:not([data-theme="light"]) .amsg.ok{background:transparent;color:inherit}}
+.login details{margin-top:14px;font-size:13px;border-top:1px solid var(--line);padding-top:10px}
+.login details summary{cursor:pointer;font-weight:600}
+.login .pwrow{display:flex;gap:6px;align-items:center;font-size:13px;margin:-4px 0 8px}
 .app.auth{grid-template-columns:1fr}.app.auth .side{display:none}
 @media (max-width:980px){
   .app{grid-template-columns:1fr}
@@ -557,7 +571,7 @@ async function init() {
 async function startSession(u) {
   S.mode = "db"; S.loaded = {};
   S.me.id = u.id; S.me.email = u.email || ""; S.me.name = u.user_metadata?.nama || u.email || "";
-  try { const { data } = await SB.rpc("my_access"); S.me.isOwner = !!(data && data.is_admin); } catch (e) {}
+  try { const { data } = await SB.rpc("my_access"); S.me.isOwner = !!(data && data.is_admin); S.me.adminExists = data ? data.admin_exists : undefined; } catch (e) {}
   try { await loadAll(); }
   catch (e) { S.mode = "error"; S.ui.err = /relation|does not exist|schema cache/i.test(e?.message || "") ? "Tabel belum dibuat. Jalankan 01_skema_simrisiko.sql di Supabase SQL Editor." : sbError(e); render(); return; }
   SB.channel("simrisiko").on("postgres_changes", { event: "*", schema: "public" }, (p) => scheduleReload(p.table === "konteks" ? "units" : p.table)).subscribe();
@@ -638,40 +652,75 @@ async function openRiwayat(tabel, recId, judul) {
 
 /* ---- Masuk, daftar, lupa kata sandi ---- */
 function vLogin() {
-  const m = S.ui.auth || "masuk";
-  const t = { masuk: ["Masuk", "Masuk dengan akun email rumah sakit Anda."], daftar: ["Daftar akun", "Setelah mendaftar, ajukan peran Anda. Admin atau SPI akan menyetujuinya."], lupa: ["Atur ulang kata sandi", "Kami kirim tautan pengaturan ulang ke email Anda."] }[m];
+  const m = S.ui.auth || "masuk", msg = S.ui.authMsg;
+  const t = { masuk: ["Masuk", "Masuk dengan email dan kata sandi yang Anda daftarkan."], daftar: ["Daftar akun baru", "Isi data di bawah. Setelah mendaftar Anda langsung masuk, lalu memilih peran (Lini 1, 2, atau 3) untuk disetujui admin atau SPI."], lupa: ["Atur ulang kata sandi", "Kami kirim tautan pengaturan ulang ke email Anda."] }[m];
+  const seg = m === "lupa" ? "" : `<div class="seg" role="group" aria-label="Pilih masuk atau daftar"><button type="button" data-act="authmode" data-m="masuk" aria-pressed="${m === "masuk"}">Masuk</button><button type="button" data-act="authmode" data-m="daftar" aria-pressed="${m === "daftar"}">Daftar akun baru</button></div>`;
   return `<div class="login"><div class="lb"><img alt="Lambang Kota Semarang" src="${LOGO_SRC}"><div><b>SIM-Risiko</b><div class="small muted">RSD K.R.M.T Wongsonegoro</div></div></div>
-    <h1>${t[0]}</h1><p class="small muted" style="margin:4px 0 14px">${t[1]}</p>
+    ${seg}<h1>${t[0]}</h1><p class="small muted" style="margin:4px 0 14px">${t[1]}</p>
     <form id="authForm" novalidate>
-      ${m === "daftar" ? fld("nama", "Nama lengkap", "", { req: true }) : ""}
-      ${fld("email", "Email", S.ui.authEmail || "", { type: "email", req: true })}
-      ${m !== "lupa" ? fld("password", "Kata sandi", "", { type: "password", req: true, hint: m === "daftar" ? "Minimal 8 karakter." : "" }) : ""}
-      <button class="btn pri" type="submit">${m === "masuk" ? "Masuk" : m === "daftar" ? "Daftar" : "Kirim tautan"}</button>
+      ${m === "daftar" ? fld("nama", "Nama lengkap dan gelar", S.ui.authNama || "", { req: true, ph: "Ns. Siti Aminah, S.Kep." }) : ""}
+      ${fld("email", "Email", S.ui.authEmail || "", { type: "email", req: true, ph: "nama@contoh.com" })}
+      ${m !== "lupa" ? fld("password", "Kata sandi", "", { type: "password", req: true, hint: m === "daftar" ? "Minimal 8 karakter. Gunakan kombinasi huruf dan angka." : "" }) : ""}
+      ${m === "daftar" ? fld("password2", "Ulangi kata sandi", "", { type: "password", req: true }) : ""}
+      ${m !== "lupa" ? `<label class="pwrow"><input type="checkbox" id="showPw"> Tampilkan kata sandi</label>` : ""}
+      <button class="btn pri" type="submit">${m === "masuk" ? "Masuk" : m === "daftar" ? "Daftar dan masuk" : "Kirim tautan"}</button>
     </form>
-    <div class="alt">${m !== "masuk" ? `<a data-act="authmode" data-m="masuk">Sudah punya akun? Masuk</a>` : `<a data-act="authmode" data-m="daftar">Belum punya akun? Daftar</a><a data-act="authmode" data-m="lupa">Lupa kata sandi</a>`}</div></div>`;
+    ${msg ? `<div class="amsg ${msg.k || ""}" role="status">${msg.h}</div>` : ""}
+    <div class="alt">${m === "lupa" ? `<a data-act="authmode" data-m="masuk">← Kembali ke halaman masuk</a>` : m === "masuk" ? `<a data-act="authmode" data-m="lupa">Lupa kata sandi?</a>` : `<span></span>`}</div>
+    ${m === "lupa" ? `<p class="small muted" style="margin:10px 0 0">Bila email tidak kunjung masuk, hubungi admin aplikasi atau SPI untuk mengatur ulang kata sandi Anda.</p>` : `<details ${m === "daftar" ? "open" : ""}><summary>Cara mendapatkan akses</summary><ol>
+      <li><b>Daftar akun baru</b> dengan nama, email, dan kata sandi.</li>
+      <li>Setelah masuk, <b>ajukan peran</b>: Lini 1 (pilih unit kerja Anda), Lini 2 (UMR), atau Lini 3 (SPI).</li>
+      <li><b>Admin atau SPI menyetujui</b> permintaan Anda di menu Pengaturan. Menu sesuai lini langsung terbuka.</li></ol></details>`}</div>`;
 }
+/* Pesan kesalahan Supabase Auth dalam bahasa Indonesia, beserta jalan keluarnya. */
+const ADMIN_EMAIL_FIX = `<br><span class="small">Untuk admin: di Supabase buka <b>Authentication → Sign In / Providers → Email</b>, matikan <b>Confirm email</b>, lalu Simpan. Akun yang sudah terlanjur dibuat dapat dikonfirmasi dengan skrip <b>03_bantuan_akun.sql</b>.</span>`;
+function authErr(error) {
+  const s = `${error?.code || ""} ${error?.message || error || ""}`;
+  if (/not authorized/i.test(s)) return { k: "err", h: `<b>Email konfirmasi tidak dapat dikirim ke alamat ini.</b> Server email bawaan Supabase hanya mengirim ke anggota tim proyek Supabase.${ADMIN_EMAIL_FIX}` };
+  if (/rate.?limit|too many|over_email_send/i.test(s)) return { k: "err", h: `<b>Batas pengiriman email Supabase tercapai.</b> Server email bawaan hanya mengirim sekitar 2 email per jam. Coba lagi nanti, atau minta admin mematikan konfirmasi email.${ADMIN_EMAIL_FIX}` };
+  if (/sending (confirmation|magic|recovery)|error sending/i.test(s)) return { k: "err", h: `<b>Supabase gagal mengirim email konfirmasi.</b>${ADMIN_EMAIL_FIX}` };
+  if (/signups? not allowed|signup_disabled|signups are disabled/i.test(s)) return { k: "err", h: `<b>Pendaftaran akun baru sedang dimatikan.</b><br><span class="small">Untuk admin: di Supabase buka <b>Authentication → Sign In / Providers</b>, aktifkan <b>Allow new users to sign up</b>, lalu Simpan.</span>` };
+  if (/already registered|already exists|user_already_exists/i.test(s)) return { k: "err", h: `<b>Email ini sudah terdaftar.</b> Silakan masuk. Bila lupa kata sandi, pilih <a data-act="authmode" data-m="lupa">Lupa kata sandi</a>.` };
+  if (/email not confirmed|email_not_confirmed/i.test(s)) return { k: "err", h: `<b>Email Anda belum dikonfirmasi.</b> Buka tautan konfirmasi di kotak masuk (periksa juga folder Spam), atau kirim ulang. Bila email tidak kunjung masuk, minta admin mengonfirmasi akun Anda.<br><button type="button" class="btn sm" data-act="resendconfirm">Kirim ulang email konfirmasi</button>${ADMIN_EMAIL_FIX}` };
+  if (/invalid login credentials|invalid_credentials/i.test(s)) return { k: "err", h: `<b>Email atau kata sandi salah.</b> Belum punya akun? Pilih <a data-act="authmode" data-m="daftar">Daftar akun baru</a>.` };
+  if (/weak|password should|weak_password/i.test(s)) return { k: "err", h: `<b>Kata sandi terlalu lemah.</b> Gunakan minimal 8 karakter dengan kombinasi huruf dan angka.` };
+  if (/invalid.*email|email_address_invalid|unable to validate email/i.test(s)) return { k: "err", h: `<b>Alamat email tidak valid.</b> Periksa kembali penulisan email Anda.` };
+  if (/failed to fetch|networkerror|load failed|network/i.test(s)) return { k: "err", h: `<b>Tidak dapat terhubung ke server.</b> Periksa koneksi internet, lalu coba lagi.` };
+  return { k: "err", h: `<b>Gagal:</b> ${esc(error?.message || String(error))}` };
+}
+const authRedirect = () => (/^https?:/.test(location.protocol) ? location.href.split("#")[0].split("?")[0] : undefined);
+function authSay(msg) { S.ui.authMsg = msg; render(); }
+document.addEventListener("change", (e) => { if (e.target.id === "showPw") document.querySelectorAll('#authForm input[name^="password"]').forEach((i) => (i.type = e.target.checked ? "text" : "password")); });
 document.addEventListener("submit", async (e) => {
   if (e.target.id !== "authForm") return;
   e.preventDefault();
   const f = Object.fromEntries([...e.target.querySelectorAll("[name]")].map((el) => [el.name, el.value.trim()]));
   const m = S.ui.auth || "masuk", btn = e.target.querySelector("button[type=submit]");
-  S.ui.authEmail = f.email;
-  if (!f.email || (m !== "lupa" && !f.password) || (m === "daftar" && !f.nama)) { toast("Lengkapi kolom bertanda *."); return; }
-  btn.disabled = true;
+  S.ui.authEmail = f.email.toLowerCase(); if (m === "daftar") S.ui.authNama = f.nama;
+  const bad = (h) => authSay({ k: "err", h });
+  if (!f.email || (m !== "lupa" && !f.password) || (m === "daftar" && !f.nama)) return bad("Lengkapi kolom bertanda *.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) return bad("<b>Alamat email tidak valid.</b> Contoh: nama@contoh.com");
+  if (m === "daftar") {
+    if (f.password.length < 8) return bad("Kata sandi minimal 8 karakter.");
+    if (f.password !== f.password2) return bad("Kedua kata sandi tidak sama. Ketik ulang kata sandi Anda.");
+  }
+  btn.disabled = true; const label = btn.textContent; btn.textContent = "Memproses…";
   try {
     if (m === "masuk") {
-      const { error } = await SB.auth.signInWithPassword({ email: f.email, password: f.password });
-      if (error) toast(/confirm/i.test(error.message) ? "Email belum dikonfirmasi. Buka tautan konfirmasi di email Anda." : "Email atau kata sandi salah.");
+      const { error } = await SB.auth.signInWithPassword({ email: S.ui.authEmail, password: f.password });
+      if (error) authSay(authErr(error)); else S.ui.authMsg = null;
     } else if (m === "daftar") {
-      if (f.password.length < 8) { toast("Kata sandi minimal 8 karakter."); return; }
-      const { data, error } = await SB.auth.signUp({ email: f.email, password: f.password, options: { data: { nama: f.nama }, emailRedirectTo: location.href.split("#")[0] } });
-      if (error) toast(/registered|exists/i.test(error.message) ? "Email sudah terdaftar. Silakan masuk." : "Pendaftaran gagal: " + error.message);
-      else if (!data.session) { S.ui.auth = "masuk"; render(); toast("Pendaftaran berhasil. Buka email Anda untuk konfirmasi, lalu masuk."); }
+      const { data, error } = await SB.auth.signUp({ email: S.ui.authEmail, password: f.password, options: { data: { nama: f.nama }, emailRedirectTo: authRedirect() } });
+      if (error) authSay(authErr(error));
+      else if (data.session) authSay({ k: "ok", h: "<b>Pendaftaran berhasil.</b> Sedang masuk…" }); // halaman dimuat ulang otomatis
+      else if (data.user && Array.isArray(data.user.identities) && !data.user.identities.length) authSay(authErr({ message: "already registered" }));
+      else { S.ui.auth = "masuk"; authSay({ k: "ok", h: `<b>Akun berhasil dibuat, tetapi perlu konfirmasi email.</b> Buka email dari Supabase di kotak masuk <b>${esc(S.ui.authEmail)}</b> (periksa juga folder Spam), klik tautan konfirmasi, lalu masuk.<br><button type="button" class="btn sm" data-act="resendconfirm">Kirim ulang email konfirmasi</button><br><span class="small">Tidak menerima email? Minta admin atau SPI mengonfirmasi akun Anda.</span>${ADMIN_EMAIL_FIX}` }); }
     } else {
-      const { error } = await SB.auth.resetPasswordForEmail(f.email, { redirectTo: location.href.split("#")[0] });
-      toast(error ? "Gagal mengirim tautan: " + error.message : "Tautan pengaturan ulang sudah dikirim ke email Anda.");
+      const { error } = await SB.auth.resetPasswordForEmail(S.ui.authEmail, { redirectTo: authRedirect() });
+      authSay(error ? authErr(error) : { k: "ok", h: "Tautan pengaturan ulang sudah dikirim. Periksa kotak masuk dan folder Spam. Bila tidak masuk dalam beberapa menit, hubungi admin atau SPI." });
     }
-  } finally { btn.disabled = false; }
+  } catch (err) { authSay(authErr(err)); }
+  finally { if (btn.isConnected) { btn.disabled = false; btn.textContent = label; } }
 });
 function openPassword(recovery) {
   openModal(recovery ? "Buat kata sandi baru" : "Ganti kata sandi", `${fld("p1", "Kata sandi baru", "", { type: "password", req: true, hint: "Minimal 8 karakter." })}${fld("p2", "Ulangi kata sandi baru", "", { type: "password", req: true })}`,
@@ -1365,6 +1414,7 @@ function doRender() {
   if (S.mode === "local") pre = `<div class="banner"><b>Mode lokal.</b> Data bersama tidak tersedia di tampilan ini, jadi isian hanya tersimpan di perangkat ini. Isi SUPABASE_URL dan SUPABASE_ANON_KEY di bagian atas kode agar Lini 1, 2, dan 3 bekerja pada data yang sama.</div>`;
   else if (!S.me.role && S.loaded?.members && S.loaded?.roles) pre = S.me.pending ? `<div class="banner"><b>Permintaan peran Anda menunggu persetujuan</b> (${esc(ROLE_SHORT[S.members[S.me.id]?.role] || "")}). Sampai disetujui admin atau SPI, Anda hanya dapat membuka Panduan. <button class="btn sm" data-act="pickrole">Ubah permintaan</button></div>` : `<div class="banner"><b>Ajukan peran Anda</b> agar dapat membuka menu sesuai lini. <button class="btn sm pri" data-act="pickrole">Ajukan peran</button></div>`;
   if (S.readOnly) pre += `<div class="banner">Akun Anda hanya dapat membaca data. Hubungi admin aplikasi.</div>`;
+  if (S.mode === "db" && S.me.adminExists === false) pre = `<div class="banner"><b>Langkah awal: belum ada admin aplikasi.</b> Bila Anda pengelola aplikasi ini (misalnya Kepala SPI), jadikan akun <b>${esc(S.me.email)}</b> sebagai admin pertama. Admin dapat menyetujui peran pengguna lain dan membuka Pengaturan. Tombol ini hanya muncul selama belum ada admin.<div style="margin-top:8px"><button class="btn sm pri" data-act="claimadmin">Jadikan saya admin pertama</button></div></div>`;
   if (isL1()) S.f.unit = S.me.unitId || "all";
   if (!canView(S.view)) S.view = allowedViews()[0];
   renderNav();
@@ -1373,6 +1423,7 @@ function doRender() {
   const sy = window.scrollY;
   m.innerHTML = pre + (V[S.view] || vDashboard)();
   window.scrollTo(0, sy);
+  if (S.mode === "db" && S.me.adminExists === false) return; // tunggu admin pertama ditetapkan
   if (S.mode === "db" && !S.me.role && !S.me.pending && S.loaded?.members && S.loaded?.roles && !S.ui.askedRole) { S.ui.askedRole = true; openRole(S.me.id); }
 }
 
@@ -2243,9 +2294,21 @@ const ACT = {
   // Akun dan peran
   logout: async () => { await SB.auth.signOut(); location.reload(); },
   password: () => openPassword(false),
-  authmode: (d) => { S.ui.auth = d.m; render(); },
+  authmode: (d) => { S.ui.auth = d.m; S.ui.authMsg = null; render(); },
   approverole: async (d) => { const q = S.members[d.id]; if (!q?.role || !canApprove()) return; await put("roles", d.id, { role: q.role, unitId: q.role === "L1" ? q.unitId || "" : "", jabatan: q.jabatan || "", nama: q.nama || "", email: q.email || "", approvedBy: S.me.id, approvedAt: new Date().toISOString() }); toast("Peran disetujui."); },
   revokerole: async (d) => { if (!canApprove() || !confirm(`Cabut peran ${personName(d.id)}? Pengguna hanya dapat membuka Panduan sampai peran ditetapkan lagi.`)) return; await del("roles", d.id); toast("Peran dicabut."); },
+  claimadmin: async () => {
+    if (!confirm(`Jadikan ${S.me.email} sebagai admin pertama SIM-Risiko?`)) return;
+    const { data, error } = await SB.rpc("claim_first_admin");
+    if (error) { toast("Gagal: " + error.message); return; }
+    toast(data ? "Anda sekarang admin. Halaman dimuat ulang…" : "Admin sudah ditetapkan oleh akun lain.");
+    setTimeout(() => location.reload(), 900);
+  },
+  resendconfirm: async () => {
+    if (!S.ui.authEmail) { authSay({ k: "err", h: "Isi email Anda terlebih dahulu." }); return; }
+    const { error } = await SB.auth.resend({ type: "signup", email: S.ui.authEmail, options: { emailRedirectTo: authRedirect() } });
+    authSay(error ? authErr(error) : { k: "ok", h: `Email konfirmasi dikirim ulang ke <b>${esc(S.ui.authEmail)}</b>. Periksa kotak masuk dan folder Spam.` });
+  },
   pickrole: (d) => { if (S.mode !== "db" && S.mode !== "local") return; if (S.mode === "local") { toast("Di mode lokal, pilih peran dari menu Coba sebagai."); return; } openRole(d.id); },
   savecfg: async () => { const t = +$("#cfgTahun").value, a = $("#cfgAcuan").value, s = +$("#cfgSelera").value; if (!t || !s) return; await putCfg(Object.assign({}, S.cfg, { tahun: t, acuan: a, seleraDefault: s })); toast("Acuan penilaian disimpan."); },
   delcontoh: async () => { if (!confirm("Hapus semua data contoh? Data riil tidak terpengaruh.")) return; for (const c of COLS) for (const [id, x] of Object.entries(S[c])) if (x.contoh) await del(c, id); toast("Data contoh dihapus."); },
