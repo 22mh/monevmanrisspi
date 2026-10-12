@@ -83,6 +83,17 @@ textarea{min-height:70px;resize:vertical;width:100%}
 .panel{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);min-width:0}
 .grid{display:grid;gap:14px}
 .g2{grid-template-columns:1.25fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+.akun{border:1px solid var(--gold);background:var(--paper)}
+.akun h2 .tag{margin-left:6px;vertical-align:middle}
+.steps{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:0}
+.steps li{display:grid;grid-template-columns:34px 1fr;gap:12px;position:relative;padding:0 0 18px}
+.steps li:not(:last-child)::before{content:"";position:absolute;left:16px;top:34px;bottom:0;width:2px;background:var(--line)}
+.steps .dot{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:700;border:2px solid var(--line);background:var(--paper);color:var(--ink-2)}
+.steps .done .dot{background:var(--ok);border-color:var(--ok);color:#fff}
+.steps .now .dot{border-color:var(--gold);color:var(--ink)}
+.steps .no .dot{background:var(--bad);border-color:var(--bad);color:#fff}
+.steps b{display:block;margin:6px 0 2px}
+.navbadge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--bad);color:#fff;font-size:11.5px;font-weight:700;margin-left:6px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
 .kpi{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
 .kpi .v{font-size:30px;font-weight:800;line-height:1.1}
@@ -259,6 +270,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const TODAY = new Date();
+const fmtDateTime = (s) => { if (!s) return "–"; const d = new Date(s); return isNaN(d) ? esc(s) : d.toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); };
 const fmtDate = (s) => { if (!s) return "–"; const d = new Date(s); return isNaN(d) ? esc(s) : d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }); };
 const fmtDT = (s) => { if (!s) return "–"; const d = new Date(s); return isNaN(d) ? esc(s) : d.toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); };
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : null);
@@ -405,7 +417,7 @@ const ACCESS = {
   L1: ["dashboard", "konteks", "register", "rca", "rtp", "impl", "events", "reports", "temuan", "guide"],
   L2: ["dashboard", "validasi", "konteks", "register", "rca", "rtp", "impl", "events", "reports", "guide"],
   L3: ["dashboard", "konteks", "register", "rca", "rtp", "impl", "events", "reports", "spi", "jejak", "guide", "settings"],
-  none: ["guide"],
+  none: ["dashboard", "guide"],
 };
 const allowedViews = () => ACCESS[S.me.role] || ACCESS.none;
 const canView = (v) => allowedViews().includes(v) || (v === "settings" && isAppAdmin());
@@ -583,7 +595,7 @@ function recomputeMe() {
   const r = S.roles[S.me.id], m = S.members[S.me.id];
   S.me.role = r?.role || null; S.me.unitId = r?.unitId || null;
   S.me.canAdmin = !!S.me.isOwner || S.me.role === "L3";
-  S.me.pending = !r && !!m?.role;
+  S.me.pending = !r && !!m?.role && !isRejected(m);
   const key = `${S.me.role}|${S.me.unitId}`;
   if (S.ui.roleKey !== undefined && S.ui.roleKey !== key) { S.ui.roleKey = key; loadAll().catch(() => {}); return; }
   S.ui.roleKey = key;
@@ -759,7 +771,7 @@ const VIEWS = [
 function renderNav() {
   const vis = []; let grp = null;
   VIEWS.forEach((v) => { if (v[0] === "grp") grp = v; else if (canView(v[0])) { if (grp) { vis.push(grp); grp = null; } vis.push(v); } });
-  $("#nav").innerHTML = vis.map((v) => (v[0] === "grp" ? `<div class="grp">${esc(v[1])}</div>` : `<button data-act="go" data-v="${v[0]}" ${S.view === v[0] ? 'aria-current="page"' : ""}>${esc(v[1])}<span class="lp">${esc(v[2])}</span></button>`)).join("");
+  $("#nav").innerHTML = vis.map((v) => (v[0] === "grp" ? `<div class="grp">${esc(v[1])}</div>` : `<button data-act="go" data-v="${v[0]}" ${S.view === v[0] ? 'aria-current="page"' : ""}>${esc(v[1])}${v[0] === "dashboard" && S.mode === "db" && canApprove() && pendingRequests().length ? `<span class="navbadge" title="Pengajuan akun menunggu konfirmasi">${pendingRequests().length}</span>` : ""}<span class="lp">${esc(v[2])}</span></button>`)).join("");
   const role = S.me.role;
   let who = "";
   if (S.mode === "local") {
@@ -833,6 +845,7 @@ function compliance(unitId, t, tw) {
 
 /* ========== VIEW: Dasbor ========== */
 function vDashboard() {
+  if (S.mode === "db" && !S.me.role) return vAkunSaya();
   const rs = risksY(), rt = rtpsY(), evY = eventsP(true), evP = eventsP(false), key = pkey(S.f.tahun, S.f.tw);
   const prio = rs.filter(([, r]) => isPrio(r));
   const merah = rs.filter(([, r]) => lvl(res(r)).i === 4);
@@ -845,7 +858,7 @@ function vDashboard() {
   const comps = units.map(([id]) => compliance(id, S.f.tahun, S.f.tw).score).filter((x) => x !== null);
   const avgC = comps.length ? Math.round(comps.reduce((a, b) => a + b, 0) / comps.length) : null;
   const sub = `Data ${S.f.unit === "all" ? "seluruh unit" : esc(unitName(S.f.unit))}, tahun ${S.f.tahun}, periode ${plabel(key)}. Level memakai Lampiran ${esc(S.cfg.acuan)}.`;
-  let h = head("Dasbor pemantauan", sub, filterBar());
+  let h = head("Dasbor pemantauan", sub, filterBar()) + akunPanel() + myChangeBanner();
   if (!Object.keys(S.units).length) return h + emptyBox("Belum ada unit kerja", "Admin atau SPI menambahkan unit kerja di Pengaturan, atau Lini 1 mengisinya sendiri, agar setiap Lini 1 dapat mulai mengisi konteks dan register risiko.", isAdmin() ? `<button class="btn pri" data-act="go" data-v="settings">Buka pengaturan</button>` : "");
   h += `<div class="kpis">
     ${kpi(rs.length, "Risiko teridentifikasi", `${rs.filter(([, r]) => r.status === "Tervalidasi").length} tervalidasi UMR`)}
@@ -912,7 +925,6 @@ function alerts(rs, rt, ev, key) {
     if (L1) { const n = au.filter(([id, x]) => !auditResp(id, x)).length; if (n) a.push({ r: "L1", t: `${n} temuan SPI untuk unit Anda belum ditanggapi.`, v: "temuan" }); }
     else { const ver = au.filter(([id, x]) => auditStatus(id, x) === "Menunggu verifikasi").length; if (ver) a.push({ r: "L3", t: `${ver} tanggapan unit atas temuan SPI menunggu verifikasi.`, v: "spi" }); if (au.length - ver) a.push({ r: "L3", t: `${au.length - ver} temuan SPI masih terbuka.`, v: "spi" }); }
   }
-  if (canApprove()) { const n = pendingRequests().length; if (n) a.push({ r: "L3", t: `${n} permintaan peran pengguna menunggu persetujuan di Pengaturan.`, v: "settings" }); }
   return a.filter((x) => canView(x.v));
 }
 
@@ -1248,7 +1260,91 @@ function auditTable(list, mode) {
     return `<tr><td>${fmtDate(a.createdAt)}</td>${mode === "spi" ? `<td>${esc(unitName(a.unitId))}</td>` : ""}<td>${esc(a.aspek)}</td><td>${esc(S.risks[a.riskId]?.kode || (a.riskId ? "Risiko" : "Unit"))}</td><td>${esc(a.kondisi || a.temuan)}</td><td>${esc(a.rekomendasi)}</td><td>${esc(a.prioritas)}</td><td>${fmtDate(a.batas)}</td><td>${esc(short(auditResp(id, a), 120) || "–")}${S.tanggapan[id]?.targetTL ? `<br><span class="small muted">Target: ${fmtDate(S.tanggapan[id].targetTL)}</span>` : ""}</td><td>${a.verifikasi?.hasil ? `${statusTag(a.verifikasi.hasil)}<br><span class="small muted">${fmtDate(a.verifikasi.tanggal)}</span>` : "–"}</td><td>${statusTag(st)}</td><td><div class="acts">${b.join("")}</div></td></tr>`;
   }).join("")}</tbody></table></div>`;
 }
-function pendingRequests() { return Object.entries(S.members).filter(([id, m]) => { const r = S.roles[id]; return m?.role && (!r || r.role !== m.role || (r.unitId || "") !== (m.unitId || "")) && (!r || !m.requestedAt || !r.approvedAt || m.requestedAt > r.approvedAt); }); }
+/* ---- Pengajuan akun: status dan keputusan admin/SPI ---- */
+const DK = ["keputusan", "alasan", "diputuskanOleh", "diputuskanNama", "diputuskanAt"];
+const isRejected = (m) => !!m && m.keputusan === "Ditolak" && !!m.diputuskanAt && (!m.requestedAt || m.diputuskanAt >= m.requestedAt);
+function akunStatus(id) {
+  const m = S.members[id], r = S.roles[id];
+  if (m?.role && isRejected(m)) return "Ditolak";
+  if (pendingRequests().some(([x]) => x === id)) return "Menunggu";
+  if (r?.role) return "Aktif";
+  return "Belum mengajukan";
+}
+const akunTag = (st) => `<span class="tag ${st === "Aktif" ? "ok" : st === "Ditolak" ? "bad" : st === "Menunggu" ? "warn" : ""}">${st === "Menunggu" ? "Menunggu konfirmasi" : st === "Aktif" ? "Disetujui · aktif" : st}</span>`;
+const reqDesc = (x) => (x?.role ? `${ROLE_SHORT[x.role]}${x.role === "L1" ? " · " + (x.unitId ? unitName(x.unitId) : "unit belum dipilih") : ""}` : "–");
+const keepDecision = (id) => Object.fromEntries(DK.filter((k) => S.members[id]?.[k] !== undefined).map((k) => [k, S.members[id][k]]));
+async function decideAkun(id, keputusan, alasan) {
+  const m = S.members[id]; if (!m) return true;
+  return put("members", id, Object.assign({}, m, { keputusan, alasan: alasan || "", diputuskanOleh: S.me.id, diputuskanNama: S.me.name || S.me.email || "", diputuskanAt: new Date().toISOString() }));
+}
+const ALASAN_TOLAK = ["Email bukan milik pegawai rumah sakit", "Nama atau jabatan tidak dapat diverifikasi", "Unit kerja tidak sesuai", "Peran tidak sesuai jabatan (silakan ajukan peran yang sesuai)", "Pengajuan ganda: pegawai sudah memiliki akun lain"];
+function openReview(id, focus) {
+  if (!canApprove()) return;
+  const m = S.members[id] || {}, r = S.roles[id], unitOk = m.role !== "L1" || (m.unitId && S.units[m.unitId]);
+  const body = `${dlist([["Nama", esc(m.nama || personName(id))], ["Email", esc(m.email || "–")], ["Peran yang diajukan", `<b>${esc(reqDesc(m))}</b>`], ["Jabatan", esc(m.jabatan || "–")], ["Diajukan", m.requestedAt ? fmtDateTime(m.requestedAt) : "–"], r?.role ? ["Peran aktif saat ini", `${esc(reqDesc(r))} <span class="small muted">(ini permintaan perubahan peran)</span>`] : null])}
+    ${!unitOk ? `<div class="banner" style="margin:10px 0">Unit kerja yang diajukan tidak ditemukan. Gunakan <b>Ubah lalu setujui</b> untuk memilih unit yang benar, atau tolak pengajuan ini.</div>` : ""}
+    <fieldset class="fs"><legend>Keputusan</legend>
+      ${fld("cepat", "Alasan penolakan (pilih atau tulis sendiri)", "", { type: "select", opts: ALASAN_TOLAK })}
+      ${fld("alasan", "Alasan penolakan / catatan untuk pemohon", "", { type: "textarea", ph: "Wajib diisi bila menolak. Pemohon melihat catatan ini di dasbornya." })}
+      <p class="small muted" style="margin:0">Bila disetujui, pemohon langsung mendapat akses sesuai peran. Bila ditolak, pemohon melihat alasannya dan dapat memperbaiki lalu mengajukan ulang. Keputusan tercatat di riwayat.</p>
+    </fieldset>`;
+  openModal("Konfirmasi pengajuan akun", body, {
+    links: [{ act: "reviewedit", id, t: "Ubah lalu setujui" }],
+    buttons: [{ v: "tolak", t: "Tolak", danger: true }, { v: "setujui", t: "Setujui", pri: true }],
+    after: (b) => {
+      const c = $('[name="cepat"]', b), a = $('[name="alasan"]', b);
+      c.addEventListener("change", () => { if (c.value) a.value = c.value; });
+      if (focus === "tolak") setTimeout(() => c.focus(), 50);
+      $("#dlgFoot").querySelectorAll('button[value="tolak"],button[value="setujui"]').forEach((x) => x.classList.toggle("pri", x.value === (focus || "setujui")));
+      const t = $("#dlgFoot").querySelector('button[value="tolak"]'); if (t) t.style.color = focus === "tolak" ? "" : "var(--bad)";
+    },
+    onSave: async (v, f) => {
+      if (v === "tolak") {
+        if (!f.alasan) { toast("Tulis alasan penolakan agar pemohon tahu apa yang perlu diperbaiki."); return false; }
+        if (!(await decideAkun(id, "Ditolak", f.alasan))) return false;
+        toast(`Pengajuan ${m.nama || personName(id)} ditolak. Pemohon melihat alasannya di dasbor.`);
+        return;
+      }
+      if (!unitOk) { toast("Unit kerja tidak ditemukan. Pilih Ubah lalu setujui."); return false; }
+      if (!(await put("roles", id, { role: m.role, unitId: m.role === "L1" ? m.unitId || "" : "", jabatan: m.jabatan || "", nama: m.nama || "", email: m.email || "", approvedBy: S.me.id, approvedAt: new Date().toISOString() }))) return false;
+      await decideAkun(id, "Disetujui", f.alasan);
+      toast(`Pengajuan ${m.nama || personName(id)} disetujui. Akses ${ROLE_SHORT[m.role]} langsung aktif.`);
+    } });
+}
+function akunPanel() {
+  if (S.mode !== "db" || !canApprove()) return "";
+  const pend = pendingRequests().sort((a, b) => String(a[1].requestedAt || "").localeCompare(String(b[1].requestedAt || "")));
+  const recent = Object.entries(S.members).filter(([, m]) => m.diputuskanAt && TODAY - new Date(m.diputuskanAt) < 30 * 864e5).sort((a, b) => b[1].diputuskanAt.localeCompare(a[1].diputuskanAt)).slice(0, 15);
+  if (!pend.length && !recent.length) return "";
+  let h = `<div class="panel akun" style="margin-bottom:14px"><h2>Pengajuan akun${pend.length ? `<span class="tag warn">${pend.length} menunggu konfirmasi</span>` : `<span class="tag ok">tidak ada yang menunggu</span>`}</h2>`;
+  if (pend.length) h += `<p class="small muted" style="margin:0 0 10px">Periksa identitas pemohon, lalu setujui atau tolak. Pemohon melihat keputusan Anda langsung di dasbornya.</p><div class="tablewrap"><table><thead><tr><th>Pemohon</th><th>Peran yang diajukan</th><th>Jabatan</th><th>Diajukan</th><th>Jenis</th><th>Aksi</th></tr></thead><tbody>${pend.map(([id, m]) => `<tr><td><b>${esc(m.nama || personName(id))}</b><br><span class="small muted">${esc(m.email || "")}</span></td><td>${esc(reqDesc(m))}</td><td>${esc(m.jabatan || "–")}</td><td>${m.requestedAt ? fmtDateTime(m.requestedAt) : "–"}</td><td>${S.roles[id]?.role ? `<span class="tag">Ubah peran</span>` : `<span class="tag">Akun baru</span>`}</td><td><div class="acts">${btnA("review", id, "Setujui", { pri: true, extra: ' data-f="setujui"' })}${btnA("review", id, "Tolak", { danger: true, extra: ' data-f="tolak"' })}</div></td></tr>`).join("")}</tbody></table></div>`;
+  if (recent.length) h += `<details style="margin-top:10px"><summary class="small"><b>Keputusan 30 hari terakhir (${recent.length})</b></summary><div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>Pemohon</th><th>Peran</th><th>Keputusan</th><th>Alasan / catatan</th><th>Oleh</th><th>Waktu</th></tr></thead><tbody>${recent.map(([id, m]) => `<tr><td>${esc(m.nama || personName(id))}<br><span class="small muted">${esc(m.email || "")}</span></td><td>${esc(reqDesc(m))}</td><td><span class="tag ${m.keputusan === "Ditolak" ? "bad" : "ok"}">${esc(m.keputusan)}</span></td><td class="small">${esc(m.alasan || "–")}</td><td>${esc(m.diputuskanNama || "–")}</td><td>${fmtDateTime(m.diputuskanAt)}</td></tr>`).join("")}</tbody></table></div></details>`;
+  return h + `</div>`;
+}
+/* Dasbor bagi pengguna yang belum memiliki peran: status pengajuan akun. */
+function myChangeBanner() {
+  if (S.mode !== "db" || !S.me.role) return "";
+  const m = S.members[S.me.id], st = akunStatus(S.me.id);
+  if (st === "Menunggu") return `<div class="banner">Permintaan perubahan peran Anda menjadi <b>${esc(reqDesc(m))}</b> menunggu konfirmasi admin atau SPI. Peran saat ini tetap berlaku.</div>`;
+  if (st === "Ditolak" && TODAY - new Date(m.diputuskanAt) < 30 * 864e5) return `<div class="banner">Permintaan perubahan peran Anda menjadi <b>${esc(reqDesc(m))}</b> <b>ditolak</b> oleh ${esc(m.diputuskanNama || "admin/SPI")}: ${esc(m.alasan || "–")}. Peran saat ini tetap berlaku.</div>`;
+  return "";
+}
+function vAkunSaya() {
+  const m = S.members[S.me.id], st = akunStatus(S.me.id), r = S.roles[S.me.id];
+  let h = head("Status akun Anda", "Ikuti langkah di bawah. Halaman ini diperbarui otomatis begitu admin atau SPI mengambil keputusan.");
+  if (S.me.adminExists === false) return h;
+  const step = (cls, n, title, txt) => `<li class="${cls}"><span class="dot">${cls === "done" ? "✓" : cls === "no" ? "✕" : n}</span><div><b>${title}</b><div class="small">${txt}</div></div></li>`;
+  const s2 = m?.role ? step("done", 2, "Pengajuan peran dikirim", `${esc(reqDesc(m))}${m.jabatan ? " · " + esc(m.jabatan) : ""}<br><span class="muted">${m.requestedAt ? fmtDateTime(m.requestedAt) : ""}</span>`) : step("now", 2, "Ajukan peran Anda", `Pilih lini dan unit kerja Anda.<div style="margin-top:8px"><button class="btn sm pri" data-act="pickrole">Ajukan peran</button></div>`);
+  let s3;
+  if (!m?.role) s3 = step("", 3, "Konfirmasi admin atau SPI", "Setelah peran diajukan, admin atau SPI menyetujui atau menolaknya.");
+  else if (st === "Ditolak") s3 = step("no", 3, "Pengajuan ditolak", `<b>Alasan:</b> ${esc(m.alasan || "–")}<br><span class="muted">Oleh ${esc(m.diputuskanNama || "admin/SPI")}, ${fmtDateTime(m.diputuskanAt)}</span><div style="margin-top:8px"><button class="btn sm pri" data-act="pickrole">Perbaiki dan ajukan ulang</button></div>`);
+  else if (st === "Aktif" || r) s3 = step("done", 3, "Disetujui", "Akses Anda sudah aktif. Muat ulang halaman bila menu belum muncul.");
+  else s3 = step("now", 3, "Menunggu konfirmasi admin atau SPI", `Pengajuan Anda sudah masuk ke dasbor admin dan SPI. Anda akan langsung mendapat akses begitu disetujui, tanpa perlu masuk ulang.<div style="margin-top:8px"><button class="btn sm" data-act="pickrole">Ubah pengajuan</button></div>`);
+  return h + `<div class="panel" style="max-width:720px"><h2>Pengajuan akun ${akunTag(st)}</h2><ol class="steps">${step("done", 1, "Akun dibuat", esc(S.me.email))}${s2}${s3}</ol></div>
+    <p class="small muted" style="max-width:720px">Sambil menunggu, Anda dapat membaca <a data-act="go" data-v="guide" style="cursor:pointer;text-decoration:underline">Panduan pengisian</a>.</p>`;
+}
+
+function pendingRequests() { return Object.entries(S.members).filter(([id, m]) => { const r = S.roles[id]; return m?.role && !isRejected(m) && (!r || r.role !== m.role || (r.unitId || "") !== (m.unitId || "")) && (!r || !m.requestedAt || !r.approvedAt || m.requestedAt > r.approvedAt); }); }
 
 /* ========== VIEW: Temuan SPI untuk unit (Lini 1) ========== */
 function vKriteria(tabs) {
@@ -1315,7 +1411,7 @@ function vGuide() {
   const ex = (html) => `<div class="ex">${html}</div>`;
   const M = (m, b) => `<b>${m}</b>${b ? ` → <b>${b}</b>` : ""}`;
   const L1 = [
-    ["Masuk dan ajukan peran", `<p>Daftar dengan email, lalu pilih peran <b>Lini 1</b> dan unit Anda. Bila unit belum ada di daftar, pilih <b>Unit belum ada di daftar, isi manual</b> dan tulis nama unit serta pemilik risikonya. Menu terbuka setelah peran disetujui admin atau SPI.</p>`],
+    ["Masuk dan ajukan peran", `<p>Daftar dengan email, lalu pilih peran <b>Lini 1</b> dan unit Anda. Bila unit belum ada di daftar, pilih <b>Unit belum ada di daftar, isi manual</b> dan tulis nama unit serta pemilik risikonya. Status pengajuan (menunggu, disetujui, atau ditolak beserta alasannya) tampil di Dasbor. Menu terbuka otomatis setelah disetujui admin atau SPI; bila ditolak, perbaiki lalu ajukan ulang.</p>`],
     ["Isi konteks unit (Lampiran 1)", `<p>${M("Konteks unit", "Isi konteks")}. Isi bagian A–E: identitas unit dan pemilik risiko, visi-misi, sasaran/IKU, proses bisnis, pemangku kepentingan, dan <b>selera risiko</b> dalam kalimat serta angka.</p><p>Di awal tahun berikutnya gunakan <b>Salin dari [tahun lalu]</b>. Konteks tahun lain dibuka lewat tombol tahun di kartu unit. <b>Ubah</b>, <b>Hapus</b>, dan <b>Riwayat</b> tersedia di kartu yang sama.</p>${ex(`<b>Contoh:</b> sasaran "Kejadian pasien jatuh = 0 per tahun"; selera "tidak mentoleransi pasien jatuh dengan cedera berat", batas skor ≤ 12.`)}`],
     ["Identifikasi dan analisis risiko (Lampiran 2–4)", `<p>${M("Register risiko", "Tambah risiko")}. Isi tiga bagian:</p><ol><li><b>Identifikasi:</b> sasaran terkait, kategori, peristiwa, penyebab, dan dampak. Aplikasi merangkainya menjadi pernyataan risiko.</li><li><b>Inheren:</b> K dan D beserta dasar datanya.</li><li><b>Residu:</b> pengendalian yang ada, efektivitas, bukti, serta K dan D residu.</li></ol><p>Pilih <b>Simpan draf</b> bila belum selesai, atau <b>Simpan dan ajukan ke UMR</b> bila sudah lengkap.</p>${ex(`<b>Keliru:</b> "Kekurangan perawat" (itu penyebab).<br><b>Benar:</b> Kemungkinan pasien risiko tinggi jatuh, yang disebabkan asesmen ulang tidak dilakukan tiap shift, sehingga cedera dan masa rawat bertambah.`)}`],
     ["Kelola risiko di register", `<p>Setiap baris register memiliki tombol:</p><ul><li><b>Lihat:</b> ringkasan lengkap risiko, RCA, RTP, progres implementasi, dan peristiwa terkait.</li><li><b>Ubah:</b> mengubah isian. Risiko yang sudah tervalidasi akan diajukan ulang ke UMR.</li><li><b>Tarik pengajuan:</b> mengembalikan risiko berstatus Diajukan menjadi Draf.</li><li><b>Nilai ulang:</b> memperbarui skor residu risiko tervalidasi tanpa validasi ulang, misalnya penilaian semesteran.</li><li><b>Hapus</b> dan <b>Riwayat</b>.</li></ul><p>Bila UMR mengembalikan risiko, statusnya menjadi <b>Perlu revisi</b> beserta catatan UMR. Perbaiki, lalu ajukan kembali.</p>`],
@@ -1337,6 +1433,7 @@ function vGuide() {
   ];
   const L3 = [
     ["Masuk sebagai SPI", `<p>Pilih peran <b>Lini 3 · Satuan Pengawasan Internal</b>. SPI dapat membuka seluruh menu dan data semua lini, mengelola Pengaturan bersama admin, dan menyetujui peran pengguna.</p>`],
+    ["Konfirmasi pengajuan akun", `<p>Pengajuan akun baru tampil di bagian atas ${M("Dasbor pemantauan", "Pengajuan akun")}, dengan angka merah di menu Dasbor. Periksa nama, email, peran, dan unit pemohon, lalu pilih <b>Setujui</b> atau <b>Tolak</b>. Penolakan wajib disertai alasan (dapat dipilih dari daftar). Pemohon langsung melihat keputusan dan alasannya di dasbornya, lalu dapat memperbaiki dan mengajukan ulang. Bila peran atau unit yang diajukan keliru, pilih <b>Ubah lalu setujui</b>. Keputusan 30 hari terakhir dapat dilihat di panel yang sama dan tercatat di Jejak audit.</p>`],
     ["Kelola pengguna dan unit", `<p>${M("Pengaturan")}: setujui atau cabut peran pengguna, tambah dan ubah unit kerja, dan tetapkan acuan penilaian (Lampiran 3A/3B serta selera bawaan).</p>`],
     ["Nilai kepatuhan proses", `<p>${M("Pengawasan SPI")}: matriks indeks kepatuhan per unit dengan 10 kriteria, termasuk implementasi RTP. Gunakan matriks ini untuk memilih unit yang perlu direviu lebih dalam.</p>`],
     ["Audit dengan kriteria dan KKA", `<p>${M("Pengawasan SPI", "Kriteria audit")} berisi 40 kriteria berdasarkan pasal Perdir 266/2026: 11 kriteria tata kelola rumah sakit, 22 kriteria unit kerja (Lini 1), dan 7 kriteria UMR (Lini 2). Formulir kosong dapat dicetak untuk pemeriksaan lapangan.</p><p>${M("Kertas kerja audit (KKA)", "Buat KKA")}: pilih sasaran audit. Hasil pemeriksaan sistem terisi otomatis beserta saran nilai. Auditor menetapkan penilaian (Sesuai, Sebagian sesuai, Tidak sesuai, Tidak berlaku), bukti yang diperiksa, dan catatan. Skor dan predikat dihitung otomatis. Simpan sebagai <b>final</b>, lalu <b>Cetak formulir</b> untuk ditandatangani. Dari tombol <b>Lihat</b>, kriteria yang belum sesuai dapat langsung <b>dijadikan temuan</b>.</p>`],
@@ -1393,8 +1490,8 @@ function vSettings() {
     const ap = canApprove(), pend = new Set(pendingRequests().map(([id]) => id));
     const desc = (x) => x?.role ? `${ROLE_SHORT[x.role]}${x.unitId ? " · " + unitName(x.unitId) : ""}` : "–";
     h += `<div class="panel" style="margin-bottom:14px"><div class="row"><h2 style="margin:0">Pengguna dan hak akses</h2><span class="spacer"></span>${pend.size ? `<span class="tag warn">${pend.size} menunggu persetujuan</span>` : ""}</div>
-    ${ids.length ? `<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Pengguna</th><th>Peran aktif</th><th>Permintaan</th><th>Jabatan</th><th>Status</th><th></th></tr></thead><tbody>${ids.map((id) => { const r = S.roles[id], q = S.members[id]; return `<tr><td>${esc(personName(id))}</td><td>${r?.role ? `<span class="rolepill rp-${r.role}">${esc(ROLE_SHORT[r.role])}</span>${r.unitId ? `<br><span class="small">${esc(unitName(r.unitId))}</span>` : ""}` : "–"}</td><td>${pend.has(id) ? esc(desc(q)) : "–"}</td><td>${esc(r?.jabatan || q?.jabatan || "–")}</td><td>${pend.has(id) ? `<span class="tag warn">Menunggu</span>` : r ? `<span class="tag ok">Aktif</span>` : `<span class="tag">Belum mengajukan</span>`}</td><td><div class="row">${ap && pend.has(id) ? `<button class="btn sm pri" data-act="approverole" data-id="${id}">Setujui</button>` : ""}${ap ? `<button class="btn sm" data-act="pickrole" data-id="${id}">Tetapkan</button>` : ""}${ap && r && id !== S.me.id ? `<button class="btn sm" data-act="revokerole" data-id="${id}">Cabut</button>` : ""}</div></td></tr>`; }).join("")}</tbody></table></div>` : `<p class="muted">Belum ada pengguna yang mengajukan peran.</p>`}
-        <p class="small muted">Pengguna mendaftar dengan email, lalu mengajukan peran. Admin atau SPI menyetujuinya di sini. Hak akses dijaga oleh Row Level Security di basis data: Lini 1 hanya dapat membaca dan mengubah data unitnya, UMR hanya dapat memvalidasi, dan penetapan peran hanya dapat dilakukan admin atau SPI. Admin ditetapkan melalui 02_tetapkan_admin.sql.</p></div>`;
+    ${ids.length ? `<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Pengguna</th><th>Peran aktif</th><th>Permintaan</th><th>Jabatan</th><th>Status</th><th></th></tr></thead><tbody>${ids.map((id) => { const r = S.roles[id], q = S.members[id]; return `<tr><td>${esc(personName(id))}</td><td>${r?.role ? `<span class="rolepill rp-${r.role}">${esc(ROLE_SHORT[r.role])}</span>${r.unitId ? `<br><span class="small">${esc(unitName(r.unitId))}</span>` : ""}` : "–"}</td><td>${pend.has(id) ? esc(desc(q)) : "–"}</td><td>${esc(r?.jabatan || q?.jabatan || "–")}</td><td>${akunTag(akunStatus(id))}${akunStatus(id) === "Ditolak" ? `<br><span class="small muted">${esc(q?.alasan || "")}</span>` : ""}</td><td><div class="row">${ap && pend.has(id) ? `${btnA("review", id, "Setujui", { pri: true, extra: ' data-f="setujui"' })}${btnA("review", id, "Tolak", { danger: true, extra: ' data-f="tolak"' })}` : ""}${ap ? `<button class="btn sm" data-act="pickrole" data-id="${id}">Tetapkan</button>` : ""}${ap && r && id !== S.me.id ? `<button class="btn sm" data-act="revokerole" data-id="${id}">Cabut</button>` : ""}</div></td></tr>`; }).join("")}</tbody></table></div>` : `<p class="muted">Belum ada pengguna yang mengajukan peran.</p>`}
+        <p class="small muted">Pengguna mendaftar dengan email, lalu mengajukan peran. Admin atau SPI menyetujuinya di sini. Hak akses dijaga oleh Row Level Security di basis data: Lini 1 hanya dapat membaca dan mengubah data unitnya, UMR hanya dapat memvalidasi, dan penetapan peran hanya dapat dilakukan admin atau SPI. Pengajuan baru juga tampil di Dasbor admin dan SPI untuk disetujui atau ditolak.</p></div>`;
   }
   const nC = COLS.reduce((a, c) => a + Object.values(S[c]).filter((x) => x.contoh).length, 0);
   if (nC && ad) h += `<div class="panel"><h2>Data contoh</h2><p>Aplikasi berisi ${nC} data contoh (empat kasus pelatihan: pasien jatuh, klaim BPJS, keluhan viral, dan informed consent) yang ditandai "contoh". Hapus sebelum dipakai untuk data riil.</p><button class="btn" data-act="delcontoh">Hapus semua data contoh</button></div>`;
@@ -1412,7 +1509,7 @@ function doRender() {
   if (S.mode === "revoked") { m.innerHTML = emptyBox("Akses ke data tidak tersedia", "Muat ulang halaman untuk mencoba lagi."); return; }
   let pre = "";
   if (S.mode === "local") pre = `<div class="banner"><b>Mode lokal.</b> Data bersama tidak tersedia di tampilan ini, jadi isian hanya tersimpan di perangkat ini. Isi SUPABASE_URL dan SUPABASE_ANON_KEY di bagian atas kode agar Lini 1, 2, dan 3 bekerja pada data yang sama.</div>`;
-  else if (!S.me.role && S.loaded?.members && S.loaded?.roles) pre = S.me.pending ? `<div class="banner"><b>Permintaan peran Anda menunggu persetujuan</b> (${esc(ROLE_SHORT[S.members[S.me.id]?.role] || "")}). Sampai disetujui admin atau SPI, Anda hanya dapat membuka Panduan. <button class="btn sm" data-act="pickrole">Ubah permintaan</button></div>` : `<div class="banner"><b>Ajukan peran Anda</b> agar dapat membuka menu sesuai lini. <button class="btn sm pri" data-act="pickrole">Ajukan peran</button></div>`;
+  else if (!S.me.role && S.loaded?.members && S.loaded?.roles && S.view !== "dashboard") pre = isRejected(S.members[S.me.id]) ? `<div class="banner"><b>Pengajuan akun Anda ditolak.</b> Lihat alasannya di Dasbor. <button class="btn sm pri" data-act="go" data-v="dashboard">Lihat status akun</button></div>` : S.me.pending ? `<div class="banner"><b>Permintaan peran Anda menunggu persetujuan</b> (${esc(ROLE_SHORT[S.members[S.me.id]?.role] || "")}). Sampai disetujui admin atau SPI, Anda hanya dapat membuka Panduan. <button class="btn sm" data-act="pickrole">Ubah permintaan</button></div>` : `<div class="banner"><b>Ajukan peran Anda</b> agar dapat membuka menu sesuai lini. <button class="btn sm pri" data-act="pickrole">Ajukan peran</button></div>`;
   if (S.readOnly) pre += `<div class="banner">Akun Anda hanya dapat membaca data. Hubungi admin aplikasi.</div>`;
   if (S.mode === "db" && S.me.adminExists === false) pre = `<div class="banner"><b>Langkah awal: belum ada admin aplikasi.</b> Bila Anda pengelola aplikasi ini (misalnya Kepala SPI), jadikan akun <b>${esc(S.me.email)}</b> sebagai admin pertama. Admin dapat menyetujui peran pengguna lain dan membuka Pengaturan. Tombol ini hanya muncul selama belum ada admin.<div style="margin-top:8px"><button class="btn sm pri" data-act="claimadmin">Jadikan saya admin pertama</button></div></div>`;
   if (isL1()) S.f.unit = S.me.unitId || "all";
@@ -1424,7 +1521,7 @@ function doRender() {
   m.innerHTML = pre + (V[S.view] || vDashboard)();
   window.scrollTo(0, sy);
   if (S.mode === "db" && S.me.adminExists === false) return; // tunggu admin pertama ditetapkan
-  if (S.mode === "db" && !S.me.role && !S.me.pending && S.loaded?.members && S.loaded?.roles && !S.ui.askedRole) { S.ui.askedRole = true; openRole(S.me.id); }
+  if (S.mode === "db" && !S.me.role && !S.members[S.me.id]?.role && S.loaded?.members && S.loaded?.roles && !S.ui.askedRole) { S.ui.askedRole = true; openRole(S.me.id); }
 }
 
 /* ========== Modal framework ========== */
@@ -1503,9 +1600,12 @@ function openRole(memberId) {
       if (f.role === "L1" && unitId === NEW_UNIT) { unitId = await createUnitFrom(f); if (!unitId) return false; }
       if (unitId === NEW_UNIT) unitId = "";
       const rec = { role: f.role, unitId: f.role === "L1" ? unitId : "", jabatan: f.jabatan, nama: self ? S.me.name : (m.nama || ""), email: self ? S.me.email : (m.email || "") };
-      if (self) await put("members", id, Object.assign({ requestedAt: new Date().toISOString() }, rec));
-      if (direct) { await put("roles", id, Object.assign({ approvedBy: S.me.id, approvedAt: new Date().toISOString() }, rec)); toast(self ? "Peran disimpan." : "Peran pengguna ditetapkan."); }
-      else toast("Permintaan peran dikirim. Menunggu persetujuan admin atau SPI.");
+      if (self && !(await put("members", id, Object.assign(keepDecision(id), { requestedAt: new Date().toISOString() }, rec)))) return false;
+      if (direct) {
+        if (!(await put("roles", id, Object.assign({ approvedBy: S.me.id, approvedAt: new Date().toISOString() }, rec)))) return false;
+        if (!self && S.members[id]?.role && akunStatus(id) !== "Aktif") await decideAkun(id, "Disetujui", `Ditetapkan sebagai ${reqDesc(rec)}`);
+        toast(self ? "Peran disimpan." : "Peran pengguna ditetapkan.");
+      } else toast("Pengajuan dikirim. Status dan keputusan admin atau SPI dapat dilihat di Dasbor.");
     } });
 }
 
@@ -2295,6 +2395,8 @@ const ACT = {
   logout: async () => { await SB.auth.signOut(); location.reload(); },
   password: () => openPassword(false),
   authmode: (d) => { S.ui.auth = d.m; S.ui.authMsg = null; render(); },
+  review: (d) => openReview(d.id, d.f),
+  reviewedit: (d) => openRole(d.id),
   approverole: async (d) => { const q = S.members[d.id]; if (!q?.role || !canApprove()) return; await put("roles", d.id, { role: q.role, unitId: q.role === "L1" ? q.unitId || "" : "", jabatan: q.jabatan || "", nama: q.nama || "", email: q.email || "", approvedBy: S.me.id, approvedAt: new Date().toISOString() }); toast("Peran disetujui."); },
   revokerole: async (d) => { if (!canApprove() || !confirm(`Cabut peran ${personName(d.id)}? Pengguna hanya dapat membuka Panduan sampai peran ditetapkan lagi.`)) return; await del("roles", d.id); toast("Peran dicabut."); },
   claimadmin: async () => {
