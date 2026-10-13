@@ -1494,7 +1494,8 @@ function vSettings() {
         <p class="small muted">Pengguna mendaftar dengan email, lalu mengajukan peran. Admin atau SPI menyetujuinya di sini. Hak akses dijaga oleh Row Level Security di basis data: Lini 1 hanya dapat membaca dan mengubah data unitnya, UMR hanya dapat memvalidasi, dan penetapan peran hanya dapat dilakukan admin atau SPI. Pengajuan baru juga tampil di Dasbor admin dan SPI untuk disetujui atau ditolak.</p></div>`;
   }
   const nC = COLS.reduce((a, c) => a + Object.values(S[c]).filter((x) => x.contoh).length, 0);
-  if (nC && ad) h += `<div class="panel"><h2>Data contoh</h2><p>Aplikasi berisi ${nC} data contoh (empat kasus pelatihan: pasien jatuh, klaim BPJS, keluhan viral, dan informed consent) yang ditandai "contoh". Hapus sebelum dipakai untuk data riil.</p><button class="btn" data-act="delcontoh">Hapus semua data contoh</button></div>`;
+  if (ad) h += `<div class="panel"><h2>Data simulasi (pelatihan)</h2><p>Simulasi lengkap Instalasi Rawat Inap: konteks, 8 risiko (satu untuk setiap kategori: klinis, kepatuhan, operasional, keuangan, strategis, kecurangan, reputasi, hukum), validasi dan eskalasi UMR, 8 insiden, 3 RCA, 14 RTP beserta implementasi dan realisasi triwulan, laporan TW I–III, reviu dan konsolidasi UMR, temuan SPI, serta KKA SPI. Semua data ditandai "contoh".</p>
+    ${S.mode === "local" ? `<div class="row"><button class="btn pri" data-act="loadsim">Muat simulasi Rawat Inap</button>${nC ? `<button class="btn" data-act="delcontoh">Hapus semua data contoh (${nC})</button>` : ""}</div>` : `<p class="small">Pada mode basis data, data simulasi dimuat dengan menjalankan <b>04_data_simulasi_rawat_inap.sql</b> di Supabase SQL Editor (aturan RLS tidak mengizinkan admin atau SPI menulis register unit). Lalu tetapkan peran Lini 1 pengguna uji ke unit <b>Instalasi Rawat Inap (simulasi)</b>.</p>${nC ? `<button class="btn" data-act="delcontoh">Hapus semua data contoh (${nC})</button>` : ""}`}</div>`;
   return h;
 }
 
@@ -2300,6 +2301,319 @@ function printHtml(html, filename) {
 }
 const kkaFile = (x) => `KKA_${(x.nomor || kkaSasaran(x)).replace(/[^\w-]+/g, "_")}_${x.tahun}.html`;
 
+/* ========== Data simulasi: Instalasi Rawat Inap (seluruh proses Lini 1–3) ========== */
+const SIM_UNIT = "sim_ri";
+function simulasiData() {
+  const U = SIM_UNIT, Y = 2026, C = { contoh: true };
+  const PJ = "Kepala Instalasi Rawat Inap", PR = "Pengelola Risiko Rawat Inap", UMR = "Koordinator UMR", SPI = "Auditor SPI";
+  const cek = (at) => ({ pernyataan: true, sasaran: true, kategori: true, skor: true, residu: true, duplikat: true, oleh: UMR, at });
+  const val = (at) => ({ status: "Tervalidasi", cekUMR: cek(at), validatedAt: at, validatedBy: "sim_umr" });
+  const log = (id, tanggal, kegiatan, progres, capaian, bukti, kendala, tindak, status) => ({ id, tanggal, kegiatan, progres, status: status || (progres >= 100 ? "Selesai" : "Berjalan"), capaian, bukti, kendala: kendala || "", tindak: tindak || "", oleh: PR, at: tanggal + "T15:00:00" });
+  const mon = (status, efektif, capaian, hambatan, tindak, progres, at) => ({ status, efektif, capaian, hambatan, tindak, progres, at });
+
+  /* ---------- 1. Konteks unit (Lampiran 1) ---------- */
+  const SAS = {
+    jatuh: "Pencegahan pasien jatuh",
+    rm: "Kelengkapan rekam medis 1×24 jam",
+    pulang: "Pemulangan pasien tepat waktu",
+    klaim: "Klaim JKN rawat inap layak bayar",
+    bor: "BOR rawat inap ideal",
+    obat: "Pengelolaan obat dan BMHP akuntabel",
+    puas: "Kepuasan pasien dan tanggap komplain",
+    ic: "Persetujuan tindakan kedokteran lengkap",
+  };
+  const units = {
+    [U]: Object.assign({ nama: "Instalasi Rawat Inap (simulasi)", singkatan: "RI", pemilik: PJ, konteks: { [Y]: {
+      visi: "Visi rumah sakit: rumah sakit rujukan yang bermutu dan berdaya saing. Misi Instalasi Rawat Inap: memberikan asuhan rawat inap yang aman, bermutu, dan berpusat pada pasien.",
+      sasaran: [
+        { sasaran: SAS.jatuh, target: "Kepatuhan 100%; KTD jatuh 0", indikator: "Kepatuhan upaya pencegahan risiko jatuh (INM)", nasional: "Ya" },
+        { sasaran: SAS.rm, target: "≥ 90%", indikator: "% rekam medis lengkap ≤ 1×24 jam setelah pasien pulang", nasional: "Tidak" },
+        { sasaran: SAS.pulang, target: "≤ 2 jam", indikator: "Rerata waktu tunggu pulang setelah dinyatakan boleh pulang", nasional: "Tidak" },
+        { sasaran: SAS.klaim, target: "Pending ≤ 2% nilai klaim", indikator: "% nilai klaim pending/dispute BPJS", nasional: "Tidak" },
+        { sasaran: SAS.bor, target: "75–85%", indikator: "Bed Occupancy Rate (BOR)", nasional: "Tidak" },
+        { sasaran: SAS.obat, target: "Selisih stok Rp 0", indikator: "Nilai selisih stock opname obat dan BMHP", nasional: "Tidak" },
+        { sasaran: SAS.puas, target: "IKM ≥ 85; komplain ditanggapi ≤ 1×24 jam", indikator: "Kecepatan waktu tanggap komplain (INM)", nasional: "Ya" },
+        { sasaran: SAS.ic, target: "100%", indikator: "% informed consent lengkap sebelum tindakan berisiko", nasional: "Tidak" },
+      ],
+      proses: [
+        { proses: "Admisi dan transfer pasien dari IGD/poliklinik", output: "Pasien mendapat tempat tidur sesuai indikasi", risiko: "Pasien tertahan di IGD; salah identifikasi" },
+        { proses: "Asesmen dan asuhan keperawatan 24 jam", output: "Rencana asuhan dan asesmen ulang tiap shift", risiko: "Pasien jatuh; respons panggilan lambat" },
+        { proses: "Pemberian obat dan pengelolaan BMHP ruang", output: "Obat tepat pasien, dosis, waktu; stok sesuai", risiko: "Kesalahan obat; selisih/penyalahgunaan stok" },
+        { proses: "Visite DPJP, tindakan, dan pengisian rekam medis", output: "Rekam medis dan informed consent lengkap", risiko: "RM tidak lengkap; tuntutan hukum" },
+        { proses: "Perencanaan pulang dan penagihan klaim", output: "Pasien pulang ≤ 2 jam; berkas klaim lengkap", risiko: "Klaim pending; tempat tidur tidak tersedia" },
+      ],
+      stakeholder: [
+        { pihak: "Pasien dan keluarga", harapan: "Asuhan aman, ramah, cepat tanggap", risiko: "Cedera, keluhan viral, tuntutan" },
+        { pihak: "DPJP / KSM", harapan: "Dukungan asuhan dan dokumentasi yang tertib", risiko: "Beban dokumentasi, sengketa medis" },
+        { pihak: "BPJS Kesehatan", harapan: "Berkas klaim lengkap dan sesuai koding", risiko: "Klaim pending atau dispute" },
+        { pihak: "Instalasi Farmasi", harapan: "Peresepan dan pengembalian obat tertib", risiko: "Selisih stok, kehilangan obat" },
+        { pihak: "Dinas Kesehatan / Kemenkes / KARS", harapan: "Kepatuhan standar akreditasi dan pelaporan insiden", risiko: "Teguran, penurunan status akreditasi" },
+        { pihak: "Media dan masyarakat", harapan: "Layanan publik yang responsif", risiko: "Pemberitaan negatif" },
+      ],
+      selera: { kalimat: "Instalasi Rawat Inap tidak menoleransi risiko yang dapat mencederai pasien, menimbulkan kerugian keuangan besar, atau pelanggaran hukum. Risiko sampai skor 9 dapat diterima dan cukup dipantau; risiko di atas 9 wajib memiliki RTP.", maks: 9 },
+    } } }, C),
+  };
+
+  /* ---------- 2. Register risiko (Lampiran 4) + validasi UMR + RCA (Lampiran 6) ---------- */
+  const base = (o) => Object.assign({ unitId: U, tahun: Y, createdAt: "2026-01-20T09:00:00", by: "sim_l1" }, C, o);
+  const risks = {
+    sim_r1: base(Object.assign({ kode: "RI-01", kategori: "Klinis", sasaran: SAS.jatuh,
+      peristiwa: "pasien risiko tinggi jatuh dari tempat tidur atau di kamar mandi",
+      penyebab: "asesmen ulang risiko jatuh (skala Morse) tidak dilakukan setiap shift, bel kamar mandi sering tidak berfungsi, dan pasien berisiko tinggi ke toilet sendiri pada malam hari",
+      dampak: "pasien cedera (memar sampai fraktur), masa rawat bertambah, dan potensi tuntutan keluarga",
+      K: 4, D: 4, dasarK: "4 insiden pasien jatuh pada 2025 (2 KTC, 2 KTD)", dasarD: "1 KTD fraktur kolum femur pada 2025 (cedera berat)",
+      pengendalian: "Asesmen Morse saat masuk, gelang kuning, pagar tempat tidur, edukasi keluarga saat admisi", efektivitas: "Efektif sebagian",
+      Kr: 2, Dr: 4, bukti: "Audit kepatuhan asesmen ulang Desember 2025: 58% (belum cukup untuk menurunkan skor)",
+      penilaian: [
+        { tanggal: "2026-07-06", jenis: "Semesteran (6 bulan)", sebelum: 16, Kr: 3, Dr: 4, dasar: "Semester I: 1 KTD (14 Feb) dan 1 KTC (22 Mei). Dua RTP selesai; kepatuhan asesmen ulang 92% (Juni).", oleh: PR, at: "2026-07-06T10:00:00" },
+        { tanggal: "2026-10-05", jenis: "Setelah RTP selesai", sebelum: 12, Kr: 2, Dr: 4, dasar: "Ketiga RTP selesai. TW III tanpa insiden jatuh; kepatuhan asesmen ulang 94%; uji fungsi bel 100%.", oleh: PR, at: "2026-10-05T10:00:00" },
+      ],
+      rca: { metode: "5 Why + Fishbone", mulai: "2026-02-16", tanggal: "2026-03-10",
+        timList: [{ nama: "Kepala Ruang Penyakit Dalam", jabatan: "Kepala Ruang", peran: "Ketua" }, { nama: "Pengelola Risiko Rawat Inap", jabatan: "Perawat Primer", peran: "Notulis" }, { nama: "DPJP Penyakit Dalam", jabatan: "Dokter Spesialis", peran: "Narasumber" }, { nama: "Staf IPSRS", jabatan: "Teknisi", peran: "Anggota" }],
+        kronologi: "14 Februari 2026 pukul 03.20, pasien laki-laki 78 tahun (skor Morse 55, risiko tinggi) berjalan sendiri ke kamar mandi tanpa memanggil perawat. Bel kamar mandi tidak berbunyi saat ditekan. Pasien terpeleset dan jatuh; hasil rontgen menunjukkan fraktur radius distal kanan. Masa rawat bertambah 4 hari.",
+        data: "Laporan insiden KTD 14 Feb 2026; audit asesmen ulang Januari 2026 61%; uji fungsi bel: 7 dari 18 bel kamar mandi rusak; jadwal dinas malam 1 perawat : 12 pasien.",
+        why: ["Pasien berjalan sendiri ke kamar mandi pada malam hari dan bel tidak berfungsi.", "Pasien tidak didampingi karena status risiko tinggi tidak diketahui perawat dinas malam.", "Asesmen ulang Morse tidak dilakukan saat operan shift sore ke malam.", "Formulir asesmen ulang tidak tersedia di e-RM dan tidak ada pengingat; bel rusak tidak terdeteksi.", "Belum ada SPO uji fungsi bel berkala dan belum ada sistem pengingat asesmen ulang tiap shift."],
+        fish: { manusia: "Perawat dinas malam 1 : 12 pasien; keluarga tidak menunggu pasien.", metode: "Belum ada SPO pendampingan toileting malam; asesmen ulang tidak terjadwal tiap shift.", alat: "7 dari 18 bel kamar mandi rusak; e-RM tanpa pengingat asesmen ulang.", bahan: "", lingkungan: "Lantai kamar mandi basah; penerangan malam redup.", manajemen: "Belum ada pemeliharaan preventif bel; supervisi asesmen ulang tidak rutin." },
+        akarList: [
+          { akar: "Tidak ada pengingat dan formulir asesmen ulang risiko jatuh tiap shift di e-RM", kategori: "Peralatan / sarana / sistem", bukti: "Audit asesmen ulang Jan 2026: 61%" },
+          { akar: "Tidak ada pemeliharaan preventif dan uji fungsi bel kamar mandi", kategori: "Manajemen / kebijakan", bukti: "Uji fungsi 16 Feb 2026: 7/18 bel rusak" },
+          { akar: "Belum ada SPO pendampingan toileting malam untuk pasien risiko tinggi", kategori: "Metode / prosedur", bukti: "Telaah SPO ruang rawat inap" },
+        ],
+        rekomList: [
+          { rekomendasi: "Menambahkan formulir dan pengingat asesmen ulang risiko jatuh tiap shift di e-RM", jenis: "Rekayasa sistem / sarana", pj: "Kepala Ruang dan Tim SIMRS", target: "TW II 2026" },
+          { rekomendasi: "Memperbaiki seluruh bel kamar mandi dan menjadwalkan uji fungsi mingguan", jenis: "Rekayasa sistem / sarana", pj: "IPSRS", target: "TW I 2026" },
+          { rekomendasi: "Menyusun SPO pendampingan toileting malam dan edukasi keluarga untuk pasien Morse ≥ 45", jenis: "Administratif (SPO, pelatihan)", pj: "Kepala Ruang", target: "TW III 2026" },
+        ],
+        disetujui: PJ, tglSetuju: "2026-03-12" },
+    }, val("2026-02-03T10:00:00"))),
+
+    sim_r2: base(Object.assign({ kode: "RI-02", kategori: "Kepatuhan", sasaran: SAS.rm,
+      peristiwa: "rekam medis pasien rawat inap tidak lengkap dalam 1×24 jam setelah pasien pulang",
+      penyebab: "resume medis belum diisi DPJP saat pasien pulang dan e-RM belum mewajibkan pengisian sebelum status pulang",
+      dampak: "tidak memenuhi standar akreditasi rekam medis dan berkas klaim tertunda",
+      K: 5, D: 3, dasarK: "Audit RM bulanan 2025: rata-rata kelengkapan 64%", dasarD: "Teguran surveior akreditasi 2025; 40 berkas klaim tertunda per bulan",
+      pengendalian: "Audit kelengkapan RM bulanan oleh Instalasi RM; surat teguran ke KSM", efektivitas: "Efektif sebagian",
+      Kr: 4, Dr: 3, bukti: "Audit RM Desember 2025: kelengkapan naik dari 55% menjadi 68%" }, val("2026-02-03T10:30:00"))),
+
+    sim_r3: base(Object.assign({ kode: "RI-03", kategori: "Operasional", sasaran: SAS.pulang,
+      peristiwa: "pemulangan pasien terlambat lebih dari 2 jam setelah dinyatakan boleh pulang",
+      penyebab: "obat pulang dan resume belum siap serta keluarga belum datang menjemput",
+      dampak: "tempat tidur tidak tersedia sehingga pasien IGD tertahan menunggu kamar",
+      K: 4, D: 3, dasarK: "Rerata waktu tunggu pulang TW IV 2025: 2,6 jam", dasarD: "Pasien IGD tertahan > 6 jam rata-rata 5 kali per bulan",
+      pengendalian: "Perencanaan pulang sejak hari pertama; pemberitahuan rencana pulang H-1 ke farmasi dan keluarga", efektivitas: "Efektif sebagian",
+      Kr: 3, Dr: 3, bukti: "Data Jan 2026: 64% pasien pulang ≤ 2 jam (naik dari 48%)" }, val("2026-02-03T11:00:00"))),
+
+    sim_r4: base(Object.assign({ kode: "RI-04", kategori: "Keuangan", sasaran: SAS.klaim,
+      peristiwa: "klaim INA-CBG pasien rawat inap dikembalikan (pending atau dispute) oleh verifikator BPJS Kesehatan",
+      penyebab: "resume medis dan koding diagnosis tidak sesuai serta berkas penunjang tidak lengkap",
+      dampak: "pendapatan rumah sakit tertunda atau hilang lebih dari Rp 200 juta per bulan",
+      K: 5, D: 5, dasarK: "Pending klaim terjadi setiap bulan sepanjang 2025", dasarD: "Okt–Des 2025: 312 berkas senilai Rp 1,2 miliar (rata-rata Rp 400 juta/bulan)",
+      pengendalian: "Verifikasi berkas oleh tim casemix sebelum pengajuan (sampling 30%)", efektivitas: "Efektif sebagian",
+      Kr: 3, Dr: 4, bukti: "Januari 2026: nilai pending turun menjadi Rp 412 juta setelah sampling verifikasi",
+      eskalasi: { tanggal: "2026-02-05", nomor: "ND/012/UMR/II/2026", ringkasan: "Risiko RI-04 residu 20 (Sangat Tinggi). Nilai pending klaim rawat inap rata-rata Rp 400 juta/bulan. RTP sedang disusun; dibutuhkan tambahan 2 koder dan dukungan pengembangan SIMRS.", tglArahan: "2026-02-09", arahan: "Bentuk tim percepatan klaim; tambah 2 koder dari Instalasi Rekam Medis; laporan mingguan kepada Wakil Direktur Keuangan.", oleh: UMR, at: "2026-02-05T14:00:00" },
+      penilaian: [{ tanggal: "2026-07-08", jenis: "Semesteran (6 bulan)", sebelum: 20, Kr: 3, Dr: 4, dasar: "Pending klaim turun dari Rp 412 juta (Jan) menjadi Rp 96 juta (Jun) setelah pre-audit casemix 100% dan pelatihan DPJP.", oleh: PR, at: "2026-07-08T10:00:00" }],
+      rca: { metode: "5 Why + Fishbone", mulai: "2026-02-10", tanggal: "2026-03-05",
+        timList: [{ nama: "Kepala Instalasi Rawat Inap", jabatan: "Pemilik Risiko", peran: "Ketua" }, { nama: "Koordinator Casemix", jabatan: "Koder senior", peran: "Anggota" }, { nama: "Staf Keuangan", jabatan: "Verifikator internal", peran: "Anggota" }, { nama: "Pengelola Risiko Rawat Inap", jabatan: "Perawat", peran: "Notulis" }],
+        kronologi: "Sejak Oktober 2025 nilai pending klaim rawat inap meningkat. Berita acara verifikasi Januari 2026 mencatat 118 berkas senilai Rp 412 juta dikembalikan, terbanyak karena diagnosis sekunder tidak didukung hasil penunjang dan resume medis tidak lengkap.",
+        data: "Berita acara pending klaim Okt 2025–Jan 2026; rekap alasan pending: 46% resume tidak sesuai, 31% koding, 23% berkas penunjang kurang.",
+        why: ["Berkas klaim dikembalikan verifikator BPJS.", "Diagnosis dan tindakan di resume tidak didukung hasil penunjang dan koding tidak sesuai.", "Resume ditulis singkat oleh DPJP tanpa verifikasi koder sebelum pengajuan.", "Koder hanya memverifikasi 30% berkas karena jumlah koder kurang.", "Belum ada kebijakan pre-audit 100% dan pelatihan penulisan resume untuk DPJP."],
+        fish: { manusia: "Koder 3 orang untuk ±1.400 berkas/bulan; DPJP belum terlatih kaidah koding.", metode: "Verifikasi hanya sampling 30%; tidak ada umpan balik ke DPJP.", alat: "SIMRS belum memiliki checklist kelengkapan berkas klaim.", bahan: "Hasil penunjang belum terlampir otomatis.", lingkungan: "", manajemen: "Belum ada target dan pemantauan pending klaim per KSM." },
+        akarList: [
+          { akar: "Tidak ada pre-audit 100% berkas klaim oleh koder sebelum pengajuan", kategori: "Metode / prosedur", bukti: "Verifikasi hanya 30% berkas" },
+          { akar: "DPJP belum terlatih menulis resume dan diagnosis sesuai kaidah koding", kategori: "Manusia (SDM)", bukti: "46% pending karena resume" },
+          { akar: "SIMRS belum memiliki checklist kelengkapan berkas klaim", kategori: "Peralatan / sarana / sistem", bukti: "23% pending karena berkas penunjang" },
+        ],
+        rekomList: [
+          { rekomendasi: "Pre-audit casemix 100% berkas rawat inap sebelum pengajuan klaim", jenis: "Pengawasan / audit", pj: "Koordinator Casemix", target: "TW II 2026" },
+          { rekomendasi: "Pelatihan penulisan resume medis dan diagnosis untuk DPJP", jenis: "Administratif (SPO, pelatihan)", pj: "Komite Medik dan Casemix", target: "TW II 2026" },
+          { rekomendasi: "Integrasi checklist kelengkapan berkas klaim di SIMRS", jenis: "Rekayasa sistem / sarana", pj: "Tim SIMRS", target: "TW IV 2026" },
+        ],
+        disetujui: PJ, tglSetuju: "2026-03-06" },
+    }, val("2026-02-03T11:30:00"))),
+
+    sim_r5: base(Object.assign({ kode: "RI-05", kategori: "Strategis", sasaran: SAS.bor,
+      peristiwa: "jumlah pasien rawat inap menurun sehingga BOR di bawah 70%",
+      penyebab: "beroperasinya rumah sakit swasta baru di wilayah layanan dan perubahan pola rujukan JKN",
+      dampak: "target pendapatan BLUD rawat inap 2026 tidak tercapai",
+      K: 4, D: 3, dasarK: "BOR TW IV 2025 turun dari 82% menjadi 71%; 2 RS baru beroperasi 2025", dasarD: "Proyeksi kekurangan pendapatan Rp 10–50 juta per bulan",
+      pengendalian: "", efektivitas: "Belum ada pengendalian", Kr: null, Dr: null, bukti: "",
+      catatanUMR: "Dikembalikan 5 Feb 2026: lengkapi dasar K dengan data BOR 2025. Sudah dilengkapi, divalidasi 10 Feb 2026." }, val("2026-02-10T09:00:00"))),
+
+    sim_r6: base(Object.assign({ kode: "RI-06", kategori: "Kecurangan (fraud)", sasaran: SAS.obat,
+      peristiwa: "penyalahgunaan atau kehilangan obat dan BMHP di depo ruang rawat inap",
+      penyebab: "stok ruang (floor stock) besar, pencatatan kartu stok manual, dan stock opname tidak rutin",
+      dampak: "kerugian keuangan Rp 50–200 juta dan pelanggaran integritas pegawai",
+      K: 3, D: 4, dasarK: "Selisih stok ditemukan 2 kali pada 2025", dasarD: "Selisih terbesar 2025: Rp 62 juta",
+      pengendalian: "Kartu stok, serah terima stok tiap shift, stock opname bulanan oleh farmasi", efektivitas: "Efektif sebagian",
+      Kr: 3, Dr: 4, bukti: "Stock opname Januari 2026: selisih Rp 0",
+      penilaian: [{ tanggal: "2026-07-03", jenis: "Perubahan signifikan / insiden", sebelum: 8, Kr: 3, Dr: 4, dasar: "Stock opname 30 Jun 2026 menemukan selisih BMHP Rp 18,4 juta; skor residu dinaikkan dan RTP disusun.", oleh: PR, at: "2026-07-03T10:00:00" }] }, val("2026-02-03T13:00:00"))),
+
+    sim_r7: base(Object.assign({ kode: "RI-07", kategori: "Reputasi", sasaran: SAS.puas,
+      peristiwa: "keluhan pasien atau keluarga tentang lambatnya respons panggilan perawat menjadi viral di media sosial",
+      penyebab: "respons bel panggilan lebih dari 10 menit pada jam sibuk dan keluhan tidak ditangani di tingkat ruang",
+      dampak: "pemberitaan negatif di media lokal dan turunnya kepercayaan masyarakat",
+      K: 4, D: 4, dasarK: "Rerata 9 keluhan/bulan terkait respons perawat (2025)", dasarD: "1 unggahan negatif diberitakan media daring lokal (2025)",
+      pengendalian: "Kotak saran, layanan pengaduan Humas, briefing pagi", efektivitas: "Efektif sebagian",
+      Kr: 4, Dr: 4, bukti: "IKM rawat inap 2025: 81",
+      penilaian: [{ tanggal: "2026-08-24", jenis: "Perubahan signifikan / insiden", sebelum: 12, Kr: 4, Dr: 4, dasar: "Video keluhan 20 Agu 2026 ditonton ±25 ribu kali dan diberitakan 2 media daring lokal.", oleh: PR, at: "2026-08-24T10:00:00" }],
+      rca: { metode: "5 Why + Fishbone", mulai: "2026-08-25", tanggal: "2026-09-10",
+        timList: [{ nama: "Kepala Instalasi Rawat Inap", jabatan: "Pemilik Risiko", peran: "Ketua" }, { nama: "Kepala Humas", jabatan: "Humas", peran: "Anggota" }, { nama: "Kepala Ruang Bedah", jabatan: "Kepala Ruang", peran: "Anggota" }, { nama: "Pengelola Risiko Rawat Inap", jabatan: "Perawat", peran: "Notulis" }],
+        kronologi: "20 Agustus 2026 pukul 10.00 keluarga pasien Ruang Bedah merekam bel panggilan yang tidak direspons ±20 menit saat infus macet, lalu mengunggahnya ke media sosial. Video ditonton ±25 ribu kali dan diberitakan 2 media daring lokal pada 21 Agustus.",
+        data: "Log nurse call Agustus: rerata respons jam 08.00–11.00 = 12 menit; 3 dari 7 perawat dinas pagi mengikuti visite; 27 keluhan sejenis Jan–Agu 2026.",
+        why: ["Bel panggilan tidak direspons ±20 menit.", "Perawat dinas pagi mendampingi visite dan tindakan sehingga tidak ada yang memantau panggilan.", "Tidak ada pembagian zona dan penanggung jawab panggilan pada jam sibuk.", "Belum ada standar waktu respons dan pemantauan log nurse call.", "Keluhan sebelumnya tidak ditangani tuntas di tingkat ruang sehingga keluarga memilih media sosial."],
+        fish: { manusia: "Rasio perawat pagi 1:7 saat visite; keterampilan komunikasi melayani keluhan belum merata.", metode: "Tidak ada SPO standar respons panggilan dan penanganan keluhan di ruang.", alat: "Nurse call tanpa eskalasi otomatis dan tanpa rekap waktu respons.", bahan: "", lingkungan: "Jam sibuk 08.00–11.00 bersamaan visite dan tindakan.", manajemen: "Keluhan di ruang tidak tercatat; Humas baru tahu setelah viral." },
+        akarList: [
+          { akar: "Tidak ada pembagian zona dan standar waktu respons panggilan perawat", kategori: "Metode / prosedur", bukti: "Log nurse call: rerata 12 menit" },
+          { akar: "Petugas belum terlatih menangani keluhan secara langsung", kategori: "Manusia (SDM)", bukti: "27 keluhan sejenis Jan–Agu 2026" },
+          { akar: "Belum ada alur cepat penanganan keluhan di media sosial bersama Humas", kategori: "Manajemen / kebijakan", bukti: "Humas mengetahui setelah viral" },
+        ],
+        rekomList: [
+          { rekomendasi: "Pembagian zona perawat dan standar respons panggilan ≤ 3 menit dengan eskalasi nurse call", jenis: "Rekayasa sistem / sarana", pj: "Kepala Ruang dan IPSRS", target: "TW IV 2026" },
+          { rekomendasi: "Pelatihan service excellence dan penanganan keluhan untuk seluruh perawat rawat inap", jenis: "Administratif (SPO, pelatihan)", pj: "Bidang Keperawatan", target: "TW III 2026" },
+          { rekomendasi: "SPO penanganan keluhan di media sosial bersama Humas (tanggapan ≤ 2 jam)", jenis: "Administratif (SPO, pelatihan)", pj: "Humas", target: "TW III 2026" },
+        ],
+        disetujui: PJ, tglSetuju: "2026-09-11" },
+    }, val("2026-02-03T13:30:00"))),
+
+    sim_r8: base(Object.assign({ kode: "RI-08", kategori: "Hukum", sasaran: SAS.ic,
+      peristiwa: "gugatan atau somasi dari pasien atau keluarga terkait persetujuan tindakan kedokteran (informed consent) yang tidak lengkap",
+      penyebab: "penjelasan risiko tindakan tidak terdokumentasi lengkap dan formulir tidak ditandatangani saksi",
+      dampak: "tuntutan hukum terhadap rumah sakit dan tenaga kesehatan",
+      K: 3, D: 5, dasarK: "1 somasi terkait informed consent pada 2024", dasarD: "Tuntutan hukum = dampak katastropik (Lampiran 2)",
+      pengendalian: "Formulir informed consent baku; audit kelengkapan informed consent bulanan", efektivitas: "Efektif sebagian",
+      Kr: 2, Dr: 5, bukti: "Audit informed consent Desember 2025: kelengkapan 81%" }, val("2026-02-03T14:00:00"))),
+  };
+  [risks.sim_r1, risks.sim_r4, risks.sim_r7].forEach((r) => { r.rca.akar = r.rca.akarList.map((a) => a.akar).join("; "); r.rca.rekomendasi = r.rca.rekomList.map((x) => x.rekomendasi).join("; "); r.rca.tim = r.rca.timList.map((t) => t.nama).join(", "); });
+
+  /* ---------- 3. RTP (Lampiran 5), implementasi, dan realisasi triwulan (Lampiran 7) ---------- */
+  const rtp = (o) => Object.assign({ unitId: U, opsi: OPSI[0], createdAt: "2026-03-12T10:00:00" }, C, o);
+  const rtps = {
+    sim_t11: rtp({ riskId: "sim_r1", sumber: "RCA", akar: risks.sim_r1.rca.akarList[0].akar, kegiatan: risks.sim_r1.rca.rekomList[0].rekomendasi, kendali: KENDALI[0], pj: "Kepala Ruang dan Tim SIMRS", pihak: "Komite Keperawatan", anggaran: "Tenaga Tim SIMRS (tanpa biaya tambahan)", indikator: "Kepatuhan asesmen ulang risiko jatuh tiap shift", targetNilai: "≥ 90%", target: "2026-2", mulai: "2026-03-15", selesai: "2026-06-10", Kt: 2, Dt: 4,
+      impl: [log("i111", "2026-03-20", "Rancangan formulir asesmen ulang Morse di e-RM disetujui Komite Keperawatan.", 30, "Kepatuhan 66%", "Notulen rapat Komite Keperawatan 20/03/2026"), log("i112", "2026-04-15", "Formulir dan pengingat tiap shift aktif di e-RM (uji coba Ruang Penyakit Dalam).", 70, "Kepatuhan 81%", "Tangkapan layar e-RM; BA uji coba"), log("i113", "2026-06-10", "Diterapkan di seluruh ruang rawat inap; sosialisasi 86 perawat.", 100, "Kepatuhan 92%", "Daftar hadir sosialisasi 10/06/2026")],
+      monitor: { "2026-1": mon("Belum", "Belum dapat dinilai", "Kepatuhan 66%", "Pengembangan e-RM bergantian dengan prioritas lain", "Uji coba April 2026", 30, "2026-04-06T10:00:00"), "2026-2": mon("Sudah", "Efektif: indikator tercapai", "Kepatuhan 92% (target ≥ 90%)", "", "Pertahankan; audit bulanan", 100, "2026-07-06T10:00:00"), "2026-3": mon("Sudah", "Efektif: indikator tercapai", "Kepatuhan 94%", "", "Audit bulanan berlanjut", 100, "2026-10-05T10:00:00") } }),
+    sim_t12: rtp({ riskId: "sim_r1", sumber: "RCA", akar: risks.sim_r1.rca.akarList[1].akar, kegiatan: risks.sim_r1.rca.rekomList[1].rekomendasi, kendali: KENDALI[0], pj: "IPSRS", pihak: "Kepala Ruang", anggaran: "Rp 7.200.000 (BLUD pemeliharaan 2026)", indikator: "Bel kamar mandi berfungsi pada uji mingguan", targetNilai: "100%", target: "2026-1", mulai: "2026-02-20", selesai: "2026-03-06", Kt: 2, Dt: 4,
+      impl: [log("i121", "2026-03-06", "18 bel kamar mandi diperbaiki/diganti; jadwal uji fungsi mingguan ditetapkan.", 100, "18/18 berfungsi (100%)", "BA perbaikan IPSRS 06/03/2026")],
+      monitor: { "2026-1": mon("Sudah", "Efektif: indikator tercapai", "Uji fungsi Maret: 100% berfungsi", "", "Uji fungsi mingguan berlanjut", 100, "2026-04-06T10:00:00") } }),
+    sim_t13: rtp({ riskId: "sim_r1", sumber: "RCA", akar: risks.sim_r1.rca.akarList[2].akar, kegiatan: risks.sim_r1.rca.rekomList[2].rekomendasi, kendali: KENDALI[0], pj: "Kepala Ruang", pihak: "Bidang Keperawatan", anggaran: "Tanpa biaya", indikator: "Pasien Morse ≥ 45 didampingi saat toileting malam", targetNilai: "100%", target: "2026-3", mulai: "2026-04-01", selesai: "2026-09-25", Kt: 2, Dt: 4,
+      impl: [log("i131", "2026-04-10", "Draf SPO pendampingan toileting malam disusun.", 40, "–", "Draf SPO v1"), log("i132", "2026-07-20", "SPO disahkan Direktur; leaflet edukasi keluarga dicetak.", 80, "Pendampingan 78%", "SPO No. 445/123/VII/2026", "Leaflet terlambat dicetak", "Cetak via anggaran Humas"), log("i133", "2026-09-25", "Seluruh ruang menerapkan SPO; supervisi malam oleh kepala ruang.", 100, "Pendampingan 96%", "Lembar supervisi malam Sep 2026")],
+      monitor: { "2026-2": mon("Belum", "Belum efektif: indikator belum tercapai", "SPO masih draf", "Penyusunan SPO menunggu telaah Bidang Keperawatan", "Percepat pengesahan Juli 2026", 40, "2026-07-06T10:00:00"), "2026-3": mon("Sudah", "Efektif: indikator tercapai", "Pendampingan 96%; tanpa insiden jatuh TW III", "", "Pertahankan", 100, "2026-10-05T10:00:00") } }),
+    sim_t21: rtp({ riskId: "sim_r2", akar: "e-RM belum mewajibkan pengisian resume sebelum status pulang", kegiatan: "Mengaktifkan validasi wajib (mandatory field) resume medis di e-RM sebelum status pulang", kendali: KENDALI[0], pj: "Tim SIMRS dan Instalasi Rekam Medis", pihak: "Komite Medik", anggaran: "Tenaga Tim SIMRS", indikator: "Kelengkapan RM ≤ 1×24 jam", targetNilai: "≥ 90%", target: "2026-3", mulai: "2026-03-01", selesai: "", Kt: 2, Dt: 3, createdAt: "2026-02-15T10:00:00",
+      impl: [log("i211", "2026-04-20", "Spesifikasi kebutuhan disepakati dengan Tim SIMRS.", 30, "Kelengkapan 72%", "Notulen 20/04/2026"), log("i212", "2026-08-30", "Pengembangan 60%; uji coba tertunda karena migrasi server SIMRS.", 60, "Kelengkapan 76%", "Laporan progres Tim SIMRS Agu 2026", "Antrean pengembangan SIMRS dan migrasi server", "Usulkan prioritas ke Wadir Umum", "Tertunda")],
+      monitor: { "2026-2": mon("Belum", "Belum dapat dinilai", "Kelengkapan 74%", "Antrean pengembangan SIMRS", "Eskalasi ke Wadir Umum", 30, "2026-07-06T10:00:00"), "2026-3": mon("Belum", "Belum efektif: indikator belum tercapai", "Kelengkapan 76% (target ≥ 90%)", "Migrasi server SIMRS; pengembangan tertunda", "Target baru TW IV 2026; minta prioritas Direktur", 60, "2026-10-05T10:00:00") } }),
+    sim_t22: rtp({ riskId: "sim_r2", akar: "Tidak ada umpan balik kelengkapan RM ke DPJP", kegiatan: "Audit kelengkapan RM mingguan dan umpan balik per DPJP di rapat Komite Medik", kendali: KENDALI[1], pj: "Instalasi Rekam Medis", pihak: "Komite Medik", anggaran: "Tanpa biaya", indikator: "Umpan balik audit RM tersampaikan tiap bulan", targetNilai: "12 kali/tahun", target: "2026-2", mulai: "2026-02-15", selesai: "2026-06-30", Kt: 3, Dt: 3, createdAt: "2026-02-15T10:00:00",
+      impl: [log("i221", "2026-03-31", "Audit mingguan berjalan; umpan balik Feb–Mar disampaikan.", 50, "Kelengkapan 72%", "Rekap audit Mar 2026"), log("i222", "2026-06-30", "Umpan balik rutin tiap bulan di rapat Komite Medik.", 100, "Kelengkapan 74%", "Notulen Komite Medik Apr–Jun 2026")],
+      monitor: { "2026-1": mon("Belum", "Belum dapat dinilai", "Kelengkapan 72%", "", "Lanjutkan", 50, "2026-04-06T10:00:00"), "2026-2": mon("Sudah", "Belum efektif: indikator belum tercapai", "Kelengkapan 74% (target ≥ 90%)", "Butuh dukungan sistem (RTP e-RM)", "Percepat RTP mandatory field", 100, "2026-07-06T10:00:00") } }),
+    sim_t41: rtp({ riskId: "sim_r4", sumber: "RCA", akar: risks.sim_r4.rca.akarList[0].akar, kegiatan: risks.sim_r4.rca.rekomList[0].rekomendasi, kendali: KENDALI[1], pj: "Koordinator Casemix", pihak: "Instalasi Rekam Medis", anggaran: "2 koder tambahan (arahan Direktur 9 Feb 2026)", indikator: "Berkas rawat inap yang di-pre-audit sebelum klaim", targetNilai: "100%", target: "2026-2", mulai: "2026-03-01", selesai: "2026-05-31", Kt: 2, Dt: 4,
+      impl: [log("i411", "2026-03-15", "Penambahan 2 koder; pre-audit 70% berkas.", 60, "Pending Feb: Rp 268 juta", "SK penugasan koder"), log("i412", "2026-05-31", "Pre-audit 100% berkas rawat inap.", 100, "Pending Mei: Rp 120 juta", "Rekap pre-audit Mei 2026")],
+      monitor: { "2026-1": mon("Belum", "Belum dapat dinilai", "Pending Mar: Rp 205 juta", "", "Capai 100% pada Mei", 60, "2026-04-06T10:00:00"), "2026-2": mon("Sudah", "Efektif: indikator tercapai", "Pending Jun: Rp 96 juta (1,8%)", "", "Pertahankan", 100, "2026-07-06T10:00:00") } }),
+    sim_t42: rtp({ riskId: "sim_r4", sumber: "RCA", akar: risks.sim_r4.rca.akarList[1].akar, kegiatan: risks.sim_r4.rca.rekomList[1].rekomendasi, kendali: KENDALI[0], pj: "Komite Medik dan Casemix", pihak: "KSM", anggaran: "Rp 12.500.000 (DPA diklat 2026)", indikator: "DPJP rawat inap mengikuti pelatihan", targetNilai: "≥ 90%", target: "2026-2", mulai: "2026-04-01", selesai: "2026-06-20", Kt: 2, Dt: 4,
+      impl: [log("i421", "2026-06-20", "Pelatihan 2 angkatan; 41 dari 44 DPJP hadir.", 100, "93% DPJP terlatih", "Daftar hadir dan sertifikat")],
+      monitor: { "2026-2": mon("Sudah", "Efektif: indikator tercapai", "93% DPJP terlatih", "", "Penyegaran tahunan", 100, "2026-07-06T10:00:00") } }),
+    sim_t43: rtp({ riskId: "sim_r4", sumber: "RCA", akar: risks.sim_r4.rca.akarList[2].akar, kegiatan: risks.sim_r4.rca.rekomList[2].rekomendasi, kendali: KENDALI[0], pj: "Tim SIMRS", pihak: "Casemix", anggaran: "Tenaga Tim SIMRS", indikator: "Checklist kelengkapan klaim aktif di SIMRS", targetNilai: "Aktif di seluruh ruang", target: "2026-4", mulai: "2026-07-01", selesai: "", Kt: 2, Dt: 4,
+      impl: [log("i431", "2026-09-15", "Desain checklist selesai; pengembangan 50%.", 50, "–", "Dokumen desain v1")],
+      monitor: { "2026-3": mon("Belum", "Belum dapat dinilai", "Pengembangan 50%", "Bersamaan dengan migrasi server", "Uji coba November 2026", 50, "2026-10-05T10:00:00") } }),
+    sim_t51: rtp({ riskId: "sim_r5", akar: "Belum ada strategi pemasaran dan jejaring rujukan", kegiatan: "Kerja sama rujukan dengan 12 puskesmas dan klinik pratama serta paket layanan kamar VIP", kendali: KENDALI[0], pj: "Bidang Pelayanan dan Humas", pihak: "Wadir Pelayanan", anggaran: "Rp 25.000.000 (BLUD promosi 2026)", indikator: "BOR rawat inap", targetNilai: "≥ 75%", target: "2026-4", mulai: "2026-04-01", selesai: "", Kt: 3, Dt: 3, createdAt: "2026-02-20T10:00:00",
+      impl: [log("i511", "2026-06-30", "PKS rujukan dengan 5 puskesmas ditandatangani.", 30, "BOR TW II 72%", "PKS No. 027/PKS/VI/2026"), log("i512", "2026-09-30", "PKS dengan 9 puskesmas; paket VIP diluncurkan.", 60, "BOR TW III 74%", "Materi peluncuran paket VIP")],
+      monitor: { "2026-2": mon("Belum", "Belum dapat dinilai", "BOR 72%", "", "Lanjutkan", 30, "2026-07-06T10:00:00"), "2026-3": mon("Belum", "Belum efektif: indikator belum tercapai", "BOR 74% (target ≥ 75%)", "Negosiasi PKS dengan 3 klinik masih berjalan", "Selesaikan PKS TW IV", 60, "2026-10-05T10:00:00") } }),
+    sim_t61: rtp({ riskId: "sim_r6", akar: "Stok ruang besar dan stock opname tidak rutin", kegiatan: "Penerapan unit dose dispensing (UDD) dan stock opname mendadak bulanan oleh Instalasi Farmasi dan SPI", kendali: KENDALI[1], pj: "Kepala Instalasi Farmasi dan Kepala Instalasi Rawat Inap", pihak: "SPI", anggaran: "Rp 15.000.000 (lemari UDD terkunci)", indikator: "Nilai selisih stock opname", targetNilai: "Rp 0", target: "2026-4", mulai: "2026-07-06", selesai: "", Kt: 2, Dt: 4, createdAt: "2026-07-04T10:00:00",
+      impl: [log("i611", "2026-08-15", "UDD diterapkan di 3 dari 8 ruang; stock opname mendadak Agustus tanpa selisih.", 40, "Selisih Agustus Rp 0", "BA stock opname 15/08/2026"), log("i612", "2026-09-28", "UDD di 5 dari 8 ruang.", 60, "Selisih September Rp 1,2 juta (kedaluwarsa)", "BA stock opname 28/09/2026")],
+      monitor: { "2026-3": mon("Belum", "Belum dapat dinilai", "Selisih Sep Rp 1,2 juta (kedaluwarsa, bukan kehilangan)", "Lemari UDD baru tiba di 5 ruang", "Lengkapi 3 ruang pada November", 60, "2026-10-05T10:00:00") } }),
+    sim_t71: rtp({ riskId: "sim_r7", sumber: "RCA", akar: risks.sim_r7.rca.akarList[0].akar, kegiatan: risks.sim_r7.rca.rekomList[0].rekomendasi, kendali: KENDALI[0], pj: "Kepala Ruang dan IPSRS", pihak: "Bidang Keperawatan", anggaran: "Rp 18.000.000 (modul eskalasi nurse call)", indikator: "Rerata waktu respons panggilan perawat", targetNilai: "≤ 3 menit", target: "2026-4", mulai: "2026-09-12", selesai: "", Kt: 2, Dt: 4, createdAt: "2026-09-11T10:00:00",
+      impl: [log("i711", "2026-09-30", "Pembagian zona diterapkan di 4 ruang; modul eskalasi dalam pengadaan.", 40, "Rerata respons 6 menit", "Jadwal zona perawat Sep 2026")],
+      monitor: { "2026-3": mon("Belum", "Belum dapat dinilai", "Rerata respons 6 menit", "Pengadaan modul eskalasi", "Pemasangan November 2026", 40, "2026-10-05T10:00:00") } }),
+    sim_t72: rtp({ riskId: "sim_r7", sumber: "RCA", akar: risks.sim_r7.rca.akarList[1].akar, kegiatan: risks.sim_r7.rca.rekomList[1].rekomendasi, kendali: KENDALI[0], pj: "Bidang Keperawatan", pihak: "Humas", anggaran: "Rp 6.000.000", indikator: "Perawat rawat inap terlatih", targetNilai: "≥ 90%", target: "2026-3", mulai: "2026-09-14", selesai: "2026-09-26", Kt: 3, Dt: 3, createdAt: "2026-09-11T10:00:00",
+      impl: [log("i721", "2026-09-26", "Pelatihan 3 angkatan; 81 dari 86 perawat.", 100, "94% perawat terlatih", "Daftar hadir pelatihan")],
+      monitor: { "2026-3": mon("Sudah", "Efektif: indikator tercapai", "94% perawat terlatih; keluhan Sep turun menjadi 3", "", "Penyegaran tahunan", 100, "2026-10-05T10:00:00") } }),
+    sim_t73: rtp({ riskId: "sim_r7", sumber: "RCA", akar: risks.sim_r7.rca.akarList[2].akar, kegiatan: risks.sim_r7.rca.rekomList[2].rekomendasi, kendali: KENDALI[2], pj: "Humas", pihak: "Kepala Instalasi Rawat Inap", anggaran: "Tanpa biaya", indikator: "Keluhan media sosial ditanggapi ≤ 2 jam", targetNilai: "100%", target: "2026-3", mulai: "2026-09-01", selesai: "2026-09-18", Kt: 3, Dt: 3, createdAt: "2026-09-11T10:00:00",
+      impl: [log("i731", "2026-09-18", "SPO disahkan; grup tanggap keluhan Humas–ruang dibentuk.", 100, "2/2 unggahan ditanggapi ≤ 2 jam", "SPO No. 445/141/IX/2026")],
+      monitor: { "2026-3": mon("Sudah", "Efektif: indikator tercapai", "100% ditanggapi ≤ 2 jam", "", "Pertahankan", 100, "2026-10-05T10:00:00") } }),
+    sim_t81: rtp({ riskId: "sim_r8", akar: "Penjelasan risiko tindakan tidak terdokumentasi lengkap", kegiatan: "Pelatihan komunikasi informed consent untuk DPJP dan checklist informed consent di e-RM", kendali: KENDALI[0], pj: "Komite Medik dan Bagian Hukum", pihak: "Tim SIMRS", anggaran: "Rp 8.000.000", indikator: "Kelengkapan informed consent", targetNilai: "100%", target: "2026-3", mulai: "2026-05-01", selesai: "2026-08-31", Kt: 1, Dt: 5, createdAt: "2026-02-20T10:00:00",
+      impl: [log("i811", "2026-06-15", "Pelatihan komunikasi informed consent untuk 44 DPJP.", 50, "Kelengkapan 90%", "Daftar hadir 15/06/2026"), log("i812", "2026-08-31", "Checklist informed consent aktif di e-RM.", 100, "Kelengkapan 97%", "Tangkapan layar e-RM; audit Agu 2026")],
+      monitor: { "2026-2": mon("Belum", "Belum dapat dinilai", "Kelengkapan 90%", "", "Lanjutkan checklist e-RM", 50, "2026-07-06T10:00:00"), "2026-3": mon("Sudah", "Efektif: indikator tercapai", "Kelengkapan 97%", "", "Audit bulanan", 100, "2026-10-05T10:00:00") } }),
+  };
+
+  /* ---------- 4. Peristiwa risiko / insiden (Lampiran 8) ---------- */
+  const ev = (o) => Object.assign({ unitId: U, statusTL: "Selesai", perluRCA: false, signifikan: false, createdAt: o.waktuKejadian + ":00" }, C, o);
+  const events = {
+    sim_e1: ev({ jenis: "KTD", waktuKejadian: "2026-02-14T03:20", lokasi: "Kamar mandi Ruang Penyakit Dalam kamar 4", pelapor: "Perawat dinas malam", uraian: "Pasien laki-laki 78 tahun (Morse 55) jatuh di kamar mandi saat ke toilet sendiri; bel tidak berbunyi. Fraktur radius distal kanan.", D: 3, riskId: "sim_r1", tindakan: "Pertolongan pertama, rontgen, konsul ortopedi, informasi kepada keluarga.", koreksi: "RCA 16 Feb–10 Mar 2026; 3 RTP.", perluRCA: true, signifikan: true, waktuLapor: "2026-02-14T08:30", sik: "Ya" }),
+    sim_e2: ev({ jenis: "Non-klinis", waktuKejadian: "2026-03-02T10:00", lokasi: "Unit Casemix", pelapor: "Koordinator Casemix", uraian: "Berita acara verifikasi BPJS Januari 2026: 118 berkas rawat inap pending senilai Rp 412 juta.", D: 5, riskId: "sim_r4", tindakan: "Telaah alasan pending dan perbaikan berkas.", koreksi: "RCA dan 3 RTP; eskalasi ke Direktur.", signifikan: true, waktuLapor: "2026-03-02T15:00", sik: "Tidak wajib" }),
+    sim_e3: ev({ jenis: "Non-klinis", waktuKejadian: "2026-04-18T09:30", lokasi: "Ruang Bedah", pelapor: "Bagian Hukum", uraian: "Somasi dari kuasa hukum keluarga pasien terkait pemasangan CVC yang dinilai tanpa penjelasan risiko tertulis.", D: 4, riskId: "sim_r8", tindakan: "Telaah rekam medis; mediasi difasilitasi Bagian Hukum.", koreksi: "Mediasi berhasil 20 Mei 2026; percepat RTP informed consent.", signifikan: true, waktuLapor: "2026-04-18T13:00", sik: "Tidak wajib" }),
+    sim_e4: ev({ jenis: "KTC", waktuKejadian: "2026-05-22T21:10", lokasi: "Ruang Penyakit Dalam kamar 2", pelapor: "Perawat dinas sore", uraian: "Pasien Morse 50 terduduk di lantai saat turun dari tempat tidur; tidak ada cedera.", D: 1, riskId: "sim_r1", tindakan: "Pemeriksaan fisik, edukasi ulang keluarga.", koreksi: "Diperkuat oleh RTP pendampingan toileting.", waktuLapor: "2026-05-23T07:00", sik: "Tidak wajib" }),
+    sim_e5: ev({ jenis: "Non-klinis", waktuKejadian: "2026-06-30T14:00", lokasi: "Depo BMHP Ruang Bedah", pelapor: "Instalasi Farmasi", uraian: "Stock opname menemukan selisih BMHP (kateter, spuit, set infus) senilai Rp 18,4 juta.", D: 3, riskId: "sim_r6", tindakan: "Penelusuran kartu stok; dilaporkan ke Direktur dan SPI.", koreksi: "Penilaian ulang RI-06 dan RTP UDD.", signifikan: true, waktuLapor: "2026-07-01T08:00", sik: "Tidak wajib" }),
+    sim_e6: ev({ jenis: "Non-klinis", waktuKejadian: "2026-08-12T16:00", lokasi: "IGD dan Ruang Penyakit Dalam", pelapor: "Kepala Ruang Penyakit Dalam", uraian: "4 pasien IGD tertahan > 6 jam menunggu kamar karena 5 pasien pulang terlambat (obat pulang belum siap).", D: 2, riskId: "sim_r3", tindakan: "Koordinasi farmasi untuk obat pulang prioritas.", koreksi: "Risiko RI-03 tetap di bawah selera; dipantau.", waktuLapor: "2026-08-12T18:00", sik: "Tidak wajib" }),
+    sim_e7: ev({ jenis: "Non-klinis", waktuKejadian: "2026-08-20T10:00", lokasi: "Ruang Bedah kamar 7", pelapor: "Humas", uraian: "Video keluarga pasien tentang bel panggilan tidak direspons ±20 menit viral di media sosial (±25 ribu tayangan) dan diberitakan 2 media daring lokal.", D: 4, riskId: "sim_r7", tindakan: "Kunjungan dan permintaan maaf kepada keluarga; klarifikasi oleh Humas.", koreksi: "Penilaian ulang RI-07; RCA dan 3 RTP.", perluRCA: true, signifikan: true, waktuLapor: "2026-08-21T16:00", sik: "Tidak wajib" }),
+    sim_e8: ev({ jenis: "KNC", waktuKejadian: "2026-09-09T12:15", lokasi: "Ruang Anak", pelapor: "Perawat penanggung jawab", uraian: "Obat hampir diberikan kepada pasien dengan nama mirip; tercegah saat verifikasi gelang identitas.", D: 1, riskId: "", tindakan: "Obat diberikan kepada pasien yang benar; label nama mirip dipasang.", koreksi: "Belum dianalisis di register risiko.", statusTL: "Terbuka", waktuLapor: "2026-09-09T15:00", sik: "Tidak wajib" }),
+  };
+
+  /* ---------- 5. Laporan triwulan unit (Lampiran 9), reviu UMR, konsolidasi UMR (Lampiran 10) ---------- */
+  const rep = (q, sentAt, hambatan, rencana, rekomendasi) => Object.assign({ unitId: U, periode: `${Y}-${q}`, status: "Dikirim", sentAt, sentBy: "sim_l1", sentByName: PR, hambatan, rencana, rekomendasi }, C);
+  const reports = {
+    [`${U}_${Y}-1`]: rep(1, "2026-04-08T10:00:00", "Pengembangan e-RM untuk asesmen ulang risiko jatuh dan resume medis masih menunggu antrean Tim SIMRS. Terjadi 1 KTD pasien jatuh (14 Feb) dan pending klaim Rp 412 juta (Jan).", "Menyelesaikan formulir asesmen ulang di e-RM, pre-audit casemix 100%, dan pelatihan DPJP pada TW II.", "Dukungan prioritas pengembangan SIMRS untuk RTP RI-01 dan RI-02."),
+    [`${U}_${Y}-2`]: rep(2, "2026-07-07T10:00:00", "Kelengkapan RM baru 74% karena fitur wajib isi e-RM belum aktif. SPO pendampingan toileting masih draf. Selisih stok BMHP Rp 18,4 juta (30 Jun).", "Pengesahan SPO toileting, penerapan UDD, dan percepatan fitur e-RM pada TW III.", "Stock opname mendadak bersama SPI."),
+    [`${U}_${Y}-3`]: rep(3, "2026-10-06T10:00:00", "RTP RI-02 (fitur wajib isi resume) terlambat karena migrasi server SIMRS. Kejadian viral 20 Agu terlambat dilaporkan (±30 jam).", "Menuntaskan RTP RI-02 dan RI-07 (zona perawat, eskalasi nurse call) pada TW IV; sosialisasi alur lapor 1×24 jam.", "Penetapan prioritas SIMRS oleh Direktur; anggaran modul eskalasi nurse call."),
+    [`UMR_${Y}-1`]: Object.assign({ unitId: "UMR", periode: `${Y}-1`, status: "Dikirim", sentAt: "2026-04-20T10:00:00", sentBy: "sim_umr", hambatan: "Ketergantungan RTP pada pengembangan SIMRS.", rekomendasi: "Direktur menetapkan prioritas pengembangan SIMRS untuk RTP keselamatan pasien dan klaim; memantau risiko RI-04 (Sangat Tinggi) yang telah dieskalasi." }, C),
+    [`UMR_${Y}-2`]: Object.assign({ unitId: "UMR", periode: `${Y}-2`, status: "Dikirim", sentAt: "2026-07-21T10:00:00", sentBy: "sim_umr", hambatan: "Fitur e-RM belum aktif; SPO masih dalam telaah.", rekomendasi: "Menjadikan stock opname mendadak sebagai kegiatan rutin bersama SPI; mempercepat pengesahan SPO keperawatan." }, C),
+    [`UMR_${Y}-3`]: Object.assign({ unitId: "UMR", periode: `${Y}-3`, status: "Dikirim", sentAt: "2026-10-12T10:00:00", sentBy: "sim_umr", hambatan: "Migrasi server SIMRS menunda 2 RTP; keterlambatan pelaporan kejadian signifikan.", rekomendasi: "Menyetujui anggaran modul eskalasi nurse call; sosialisasi ulang kewajiban lapor 1×24 jam; memantau RTP RI-02 yang terlambat." }, C),
+  };
+  const reviu = {
+    [`${U}_${Y}-1`]: Object.assign({ unitId: U, periode: `${Y}-1`, status: "Diterima", catatan: "Lengkap. Pertahankan pemantauan RI-04 mingguan.", oleh: UMR, at: "2026-04-14T10:00:00" }, C),
+    [`${U}_${Y}-2`]: Object.assign({ unitId: U, periode: `${Y}-2`, status: "Diterima", catatan: "Diterima setelah perbaikan (10 Jul): unit melengkapi kronologi selisih stok BMHP dan penilaian ulang RI-06.", oleh: UMR, at: "2026-07-16T10:00:00" }, C),
+    [`${U}_${Y}-3`]: Object.assign({ unitId: U, periode: `${Y}-3`, status: "Diterima", catatan: "Diterima. Mohon tindak lanjut keterlambatan RTP RI-02 dan pelaporan 1×24 jam.", oleh: UMR, at: "2026-10-09T10:00:00" }, C),
+  };
+
+  /* ---------- 6. Pengawasan SPI (Lini 3): temuan, tanggapan, verifikasi ---------- */
+  const audits = {
+    sim_a1: Object.assign({ unitId: U, aspek: "Kecukupan pengendalian", riskId: "sim_r6", prioritas: "Tinggi", batas: "2026-06-15", tahun: Y, status: "Selesai", createdAt: "2026-05-12T10:00:00", by: "sim_spi",
+      kondisi: "Stock opname obat dan BMHP ruang rawat inap tidak dilaksanakan pada Maret dan April 2026, padahal tercantum sebagai pengendalian risiko RI-06.",
+      kriteria: "Pasal 16 ayat (1) dan Lampiran 4 Perdir 266/2026: pengendalian yang dicantumkan harus dijalankan dan dipantau.",
+      sebab: "Petugas farmasi ruang cuti dan tidak ada pengganti.", akibat: "Selisih atau kehilangan stok tidak terdeteksi tepat waktu.",
+      rekomendasi: "Menetapkan petugas pengganti dan jadwal stock opname bulanan yang ditandatangani Kepala Instalasi.",
+      verifikasi: { tanggal: "2026-06-15", hasil: "Memadai", catatan: "Jadwal dan BA stock opname Mei–Juni tersedia.", oleh: SPI, at: "2026-06-15T10:00:00" } }, C),
+    sim_a2: Object.assign({ unitId: U, aspek: "Kepatuhan pelaporan", riskId: "sim_r7", prioritas: "Tinggi", batas: "2026-11-09", tahun: Y, status: "Terbuka", createdAt: "2026-10-09T10:00:00", by: "sim_spi", kkaId: "sim_k1", kkaCrit: "II19",
+      kondisi: "Kejadian risiko signifikan (keluhan viral 20 Agu 2026 pukul 10.00) dilaporkan kepada Direktur dan UMR pada 21 Agu 2026 pukul 16.00 (±30 jam).",
+      kriteria: "Kejadian sentinel dan kejadian risiko signifikan dilaporkan paling lambat 1×24 jam kepada Direktur dan UMR (Pasal 17 ayat (2) huruf c).",
+      sebab: "Petugas belum memahami bahwa kejadian non-klinis berdampak reputasi termasuk kejadian signifikan.", akibat: "Keputusan penanganan krisis komunikasi terlambat.",
+      rekomendasi: "Sosialisasi kriteria kejadian signifikan dan alur lapor cepat; tambahkan formulir lapor cepat di grup pimpinan." }, C),
+    sim_a3: Object.assign({ unitId: U, aspek: "Kecukupan pengendalian", riskId: "sim_r2", prioritas: "Sedang", batas: "2026-12-15", tahun: Y, status: "Terbuka", createdAt: "2026-10-09T10:30:00", by: "sim_spi", kkaId: "sim_k1", kkaCrit: "II14",
+      kondisi: "RTP RI-02 (validasi wajib resume medis di e-RM) melewati target TW III 2026 dengan progres 60%; kelengkapan RM 76% (target ≥ 90%).",
+      kriteria: "Implementasi RTP dipantau dan diselesaikan sesuai target waktu (Pasal 15 ayat (3) dan Pasal 16 ayat (1)).",
+      sebab: "Migrasi server SIMRS; tidak ada penetapan prioritas pengembangan.", akibat: "Risiko kepatuhan rekam medis dan klaim tetap di atas selera.",
+      rekomendasi: "Tetapkan target baru TW IV 2026 dan minta penetapan prioritas SIMRS oleh Direktur; laporkan progres bulanan ke UMR." }, C),
+  };
+  const tanggapan = {
+    sim_a1: Object.assign({ unitId: U, tanggapan: "Petugas pengganti ditetapkan dan stock opname Mei dilaksanakan.", targetTL: "2026-05-31", buktiTL: "SK penugasan; BA stock opname 29/05/2026", oleh: PJ, at: "2026-05-20T10:00:00" }, C),
+    sim_a2: Object.assign({ unitId: U, tanggapan: "Sosialisasi kriteria kejadian signifikan kepada kepala ruang dan perawat penanggung jawab (12 Okt 2026); formulir lapor cepat disiapkan.", targetTL: "2026-10-31", buktiTL: "Notulen sosialisasi 12/10/2026", oleh: PJ, at: "2026-10-12T10:00:00" }, C),
+  };
+
+  return { units, risks, rtps, events, reports, reviu, audits, tanggapan };
+}
+/* Penilaian KKA SPI atas unit simulasi: saran sistem + penilaian auditor */
+const SIM_KKA_NILAI = {
+  II4: ["S", "Notulen curah pendapat Jan 2026; analisis insiden", "Identifikasi proaktif (curah pendapat Januari) dan reaktif (insiden Feb, Jun, Agu) terdokumentasi."],
+  II13: ["S", "Lembar pengesahan RCA dan RTP", "RCA RI-01, RI-04, RI-07 dan RTP disahkan Kepala Instalasi Rawat Inap."],
+  II17: ["SB", "Register risiko; laporan KNC 9 Sep 2026", "Risiko identifikasi pasien belum masuk register meski terjadi KNC 9 Sep 2026."],
+  II14: [null, "Log implementasi RTP; laporan Tim SIMRS", "RTP RI-02 terlambat (progres 60%, target TW III)."],
+  II19: [null, "Laporan kejadian 20–21 Agu 2026", "Keluhan viral dilaporkan ±30 jam setelah kejadian."],
+  II18: [null, "Laporan insiden ke Komite Mutu", "KNC 9 Sep 2026 belum dikaitkan ke risiko di register."],
+};
+async function loadSimulasi() {
+  if (Object.values(S.units).some((u) => u.contoh) && !confirm("Data simulasi sudah ada. Muat ulang (menimpa data simulasi)?")) return;
+  const d = simulasiData();
+  for (const c of ["units", "risks", "rtps", "events", "reviu", "audits", "tanggapan"]) for (const [id, x] of Object.entries(d[c])) await put(c, id, JSON.parse(JSON.stringify(x)));
+  for (const [id, x] of Object.entries(d.reports)) {
+    const o = JSON.parse(JSON.stringify(x));
+    if (o.unitId !== "UMR") { const [yy, qq] = o.periode.split("-").map(Number), s = unitSummary(o.unitId, yy, qq), avg = s.rt.length ? Math.round(s.rt.reduce((a, [, t]) => a + rtpProgress(t), 0) / s.rt.length) : null; o.angka = { risiko: s.rs.length, prioritas: s.prio, merah: s.merah, rtpDue: s.due.length, rtpDone: s.done.length, terlambat: s.late, peristiwa: s.ev.length, progres: avg }; }
+    await put("reports", id, o);
+  }
+  // KKA SPI: hasil pemeriksaan sistem dihitung dari data simulasi
+  const list = kkaList("L1"), ctx = kkaCtx("L1", SIM_UNIT, 2026), items = {};
+  list.forEach((c) => { const a = kkaAuto(c, ctx), m = SIM_KKA_NILAI[c.id] || []; items[c.id] = { nilai: m[0] || a.saran || "S", bukti: m[1] || "Data SIM-Risiko dan dokumen unit", catatan: m[2] || "", sistem: a.text, saran: a.saran }; });
+  const sc = kkaScore(items, list);
+  await put("kka", "sim_k1", { contoh: true, jenis: "L1", unitId: SIM_UNIT, tahun: 2026, nomor: "KKA/SPI/MR/03/2026", tglMulai: "2026-10-05", tglSelesai: "2026-10-09", auditor: "Auditor SPI", tim: "Ketua Tim SPI; Anggota Tim SPI", auditi: "Kepala Instalasi Rawat Inap", items, kesimpulan: `Penerapan manajemen risiko Instalasi Rawat Inap ${sc.pred.toLowerCase()} (skor ${sc.s}%). Siklus konteks–identifikasi–analisis–RCA–RTP–pemantauan–pelaporan berjalan dan terdokumentasi. Kelemahan: pelaporan kejadian signifikan 1×24 jam, RTP RI-02 terlambat, dan KNC identifikasi pasien belum masuk register.`, rekomendasi: "Tindak lanjuti 2 temuan (pelaporan 1×24 jam dan RTP RI-02) dan tambahkan risiko identifikasi pasien ke register.", disetujui: "Kepala SPI", skor: sc.s, predikat: sc.pred, status: "Final", createdAt: "2026-10-05T09:00:00", by: "sim_spi" });
+  S.f.tahun = 2026; S.f.tw = 3; S.f.unit = "all";
+  toast("Data simulasi Instalasi Rawat Inap dimuat. Gunakan Coba sebagai untuk melihat dari sisi Lini 1, 2, dan 3.");
+}
+
 /* ========== Unduhan ========== */
 async function saveFile(filename, data) {
   try {
@@ -2413,6 +2727,7 @@ const ACT = {
   },
   pickrole: (d) => { if (S.mode !== "db" && S.mode !== "local") return; if (S.mode === "local") { toast("Di mode lokal, pilih peran dari menu Coba sebagai."); return; } openRole(d.id); },
   savecfg: async () => { const t = +$("#cfgTahun").value, a = $("#cfgAcuan").value, s = +$("#cfgSelera").value; if (!t || !s) return; await putCfg(Object.assign({}, S.cfg, { tahun: t, acuan: a, seleraDefault: s })); toast("Acuan penilaian disimpan."); },
+  loadsim: () => loadSimulasi(),
   delcontoh: async () => { if (!confirm("Hapus semua data contoh? Data riil tidak terpengaruh.")) return; for (const c of COLS) for (const [id, x] of Object.entries(S[c])) if (x.contoh) await del(c, id); toast("Data contoh dihapus."); },
 };
 document.addEventListener("click", (e) => {
