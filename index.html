@@ -83,6 +83,32 @@ textarea{min-height:70px;resize:vertical;width:100%}
 .panel{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);min-width:0}
 .grid{display:grid;gap:14px}
 .g2{grid-template-columns:1.25fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+.peta-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;margin-bottom:14px}
+@media (max-width:1100px){.peta-grid{grid-template-columns:1fr}}
+.peta-svg{width:100%;height:auto;display:block}
+.peta-svg .gl{stroke:var(--line)}
+.peta-svg .ax{stroke:var(--ink-3)}
+.peta-svg text{fill:var(--ink-2);font-size:12px}
+.peta-svg .qz{fill:var(--lv4);opacity:.07}
+.peta-svg .ql{font-size:11.5px;font-weight:600;fill:var(--ink-3)}
+.peta-svg .qp{fill:var(--bad)}
+.peta-svg .bub{cursor:pointer}
+.peta-svg .bub circle{stroke:var(--paper);stroke-width:2;fill-opacity:.85}
+.peta-svg .bub:hover circle,.peta-svg .bub:focus circle{stroke:var(--ink);stroke-width:2.5;fill-opacity:1;outline:none}
+.peta-svg .bl{font-size:12px;font-weight:600;fill:var(--ink);paint-order:stroke;stroke:var(--paper);stroke-width:3px}
+.peta-tip{position:fixed;z-index:60;pointer-events:none;background:var(--paper);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.14);padding:10px 12px;font-size:13px;max-width:280px;display:none}
+.peta-tip b{display:block;margin-bottom:4px}
+.lvchips{display:flex;gap:4px;flex-wrap:wrap}
+.lvchips .lv{min-width:30px;text-align:center}
+.lv.lv-0n{background:var(--surface-2);color:var(--ink-3)}
+.qlist{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.qlist li{display:grid;grid-template-columns:14px 1fr;gap:8px;font-size:13px}
+.qlist i{width:14px;height:14px;border-radius:4px;margin-top:2px;background:var(--surface-2);border:1px solid var(--line)}
+.qlist i.p{background:var(--lv4);opacity:.25;border-color:var(--lv4)}
+.mini55{border-collapse:separate;border-spacing:3px;margin:0;width:auto!important;min-width:0!important}
+.mini55 td{width:34px;height:28px;text-align:center;font-weight:700;border-radius:6px;font-size:13px;padding:0}
+.mini55 th{font-size:11px;color:var(--ink-3);font-weight:600;padding:0 4px;background:none!important;border:0!important;width:14px;text-align:center;position:static!important}
+.rowprio td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
 .akun{border:1px solid var(--gold);background:var(--paper)}
 .akun h2 .tag{margin-left:6px;vertical-align:middle}
 .steps{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:0}
@@ -416,11 +442,11 @@ const isL3 = () => S.me.role === "L3";
 const ACCESS = {
   L1: ["dashboard", "konteks", "register", "rca", "rtp", "impl", "events", "reports", "temuan", "guide"],
   L2: ["dashboard", "validasi", "konteks", "register", "rca", "rtp", "impl", "events", "reports", "guide"],
-  L3: ["dashboard", "konteks", "register", "rca", "rtp", "impl", "events", "reports", "spi", "jejak", "guide", "settings"],
+  L3: ["dashboard", "konteks", "register", "rca", "rtp", "impl", "events", "reports", "peta", "spi", "jejak", "guide", "settings"],
   none: ["dashboard", "guide"],
 };
 const allowedViews = () => ACCESS[S.me.role] || ACCESS.none;
-const canView = (v) => allowedViews().includes(v) || (v === "settings" && isAppAdmin());
+const canView = (v) => allowedViews().includes(v) || ((v === "settings" || v === "peta") && isAppAdmin());
 function canEditUnit(unitId) { if (S.readOnly) return false; return isL1() && !!S.me.unitId && S.me.unitId === unitId; }
 const canValidate = () => !S.readOnly && S.me.role === "L2";
 const canAudit = () => !S.readOnly && S.me.role === "L3";
@@ -762,6 +788,7 @@ const VIEWS = [
   ["reports", "Laporan triwulan", "Lamp. 9, 10"],
   ["temuan", "Temuan SPI untuk unit", ""],
   ["grp", "Pengawasan (Lini 3)"],
+  ["peta", "Peta Risiko Unit", "PKPT"],
   ["spi", "Pengawasan SPI", ""],
   ["jejak", "Jejak audit", ""],
   ["grp", "Bantuan"],
@@ -1220,6 +1247,198 @@ const kkaSasaran = (x) => (x.jenis === "L1" ? unitName(x.unitId) : KKA_JENIS[x.j
 const nilaiTag = (n) => (n ? `<span class="tag ${n === "S" ? "ok" : n === "TS" ? "bad" : n === "SB" ? "warn" : ""}">${NILAI[n]}</span>` : `<span class="tag">Belum dinilai</span>`);
 const predTag = (sc) => `<span class="tag ${sc.s === null ? "" : sc.s >= 85 ? "ok" : sc.s >= 70 ? "" : sc.s >= 50 ? "warn" : "bad"}">${sc.s === null ? "Belum dinilai" : `${sc.s}% · ${sc.pred}`}</span>`;
 
+/* ========== VIEW: Peta Risiko Unit (Lini 3 · PKPT berbasis risiko) ==========
+   Rumus sama dengan fungsi SQL public.peta_risiko_unit (05_peta_risiko_unit.sql):
+   skor residu = K residu × D residu; K/D kumulatif = rata-rata K dan D residu ditimbang skor;
+   kuadran prioritas audit = K kumulatif ≥ 3 dan D kumulatif ≥ 3. */
+const JENIS_PKPT = ["Audit Kinerja", "Audit Kepatuhan", "Reviu", "Monitoring", "Konsultansi"];
+const KUADRAN_TAG = { "Prioritas audit": "bad", "Dampak tinggi": "warn", "Sering terjadi": "warn", "Pemantauan rutin": "", "Belum ada register": "" };
+const petaKD = (r) => (r.Kr && r.Dr ? { k: +r.Kr, d: +r.Dr } : { k: +r.K || 0, d: +r.D || 0 });
+function petaUnit(tahun, valid) {
+  return unitsSorted().map(([id, u]) => {
+    const rs = Object.entries(S.risks).filter(([, r]) => r.unitId === id && +r.tahun === +tahun && (!valid || r.status === "Tervalidasi"))
+      .map(([rid, r]) => { const x = petaKD(r); return { rid, r, k: x.k, d: x.d, skor: x.k * x.d }; }).filter((x) => x.k && x.d);
+    const n = (i) => rs.filter((x) => lvl(x.skor).i === i).length, sum = rs.reduce((a, x) => a + x.skor, 0);
+    const wk = sum ? Math.round((rs.reduce((a, x) => a + x.k * x.skor, 0) / sum) * 100) / 100 : null;
+    const wd = sum ? Math.round((rs.reduce((a, x) => a + x.d * x.skor, 0) / sum) * 100) / 100 : null;
+    const mx = seleraMaks(id, tahun);
+    const kka = Object.values(S.kka).filter((k) => k.unitId === id && k.jenis === "L1" && k.status === "Final").sort((a, b) => String(b.tglMulai).localeCompare(String(a.tglMulai)))[0];
+    return {
+      id, u, nama: u.nama || "(tanpa nama)", singkatan: u.singkatan || "", rs, jml: rs.length, valid: rs.filter((x) => x.r.status === "Tervalidasi").length,
+      merah: n(4), kuning: n(3), hijau: n(2), biru: n(1), prio: rs.filter((x) => x.skor > mx).length, skor: sum, maks: rs.reduce((a, x) => Math.max(a, x.skor), 0),
+      k: wk, d: wd, maxLv: rs.reduce((a, x) => Math.max(a, lvl(x.skor).i), 0),
+      kuadran: wk === null ? "Belum ada register" : wk >= 3 && wd >= 3 ? "Prioritas audit" : wd >= 3 ? "Dampak tinggi" : wk >= 3 ? "Sering terjadi" : "Pemantauan rutin",
+      insiden: Object.values(S.events).filter((e) => e.unitId === id && String(e.waktuKejadian || "").slice(0, 4) === String(tahun) && (e.signifikan || e.jenis === "KTD" || e.jenis === "Sentinel")).length,
+      temuan: Object.values(S.audits).filter((a) => a.unitId === id && a.status !== "Selesai").length,
+      kka: kka ? { skor: kka.skor, tgl: kka.tglMulai } : null,
+    };
+  });
+}
+function petaSort(rows, urut) {
+  const byWarna = (a, b) => b.merah - a.merah || b.kuning - a.kuning || b.skor - a.skor || b.prio - a.prio || a.nama.localeCompare(b.nama);
+  const bySkor = (a, b) => b.skor - a.skor || b.merah - a.merah || b.kuning - a.kuning || a.nama.localeCompare(b.nama);
+  return rows.slice().sort(urut === "skor" ? bySkor : byWarna).map((x, i) => Object.assign(x, { rank: i + 1 }));
+}
+const petaTop = (row) => row.rs.slice().sort((a, b) => b.skor - a.skor || b.d - a.d || String(a.r.kode || "").localeCompare(String(b.r.kode || ""))).slice(0, 5);
+const fmtKD = (v) => (v === null || v === undefined ? "–" : Number(v).toFixed(2).replace(".", ","));
+const lvCount = (i, n) => `<span class="lv ${n ? "lv-" + i : "lv-0n"}" title="${["", "Rendah (Biru)", "Sedang (Hijau)", "Tinggi (Kuning)", "Sangat Tinggi (Merah)"][i]}: ${n}">${n}</span>`;
+
+/* Status pengiriman ke SIMWAS (RPC status_prioritas_audit) */
+async function loadPetaStatus(tahun, force) {
+  if (S.mode !== "db") return;
+  if (!force && S.ui.petaStatusTahun === tahun) return;
+  S.ui.petaStatusTahun = tahun;
+  const { data, error } = await SB.rpc("status_prioritas_audit", { p_tahun: +tahun });
+  if (error) { S.ui.petaRpc = /function|does not exist|schema cache|404/i.test(error.message || "") ? "missing" : "error"; S.ui.petaStatus = {}; }
+  else { S.ui.petaRpc = "ok"; S.ui.petaStatus = Object.fromEntries((data || []).map((x) => [x.unit_id, x])); }
+  render();
+}
+function petaStatusTag(id) {
+  const x = S.mode === "db" ? (S.ui.petaStatus || {})[id] : (S.ui.petaLocal || {})[id];
+  if (!x) return `<span class="muted small">Belum dikirim</span>`;
+  const when = fmtDate(x.selesai_pada || x.dibuat_pada), lbl = `PKPT ${x.tahun_pkpt}`;
+  if (x.status === "lokal") return `<span class="tag" title="Mode lokal tidak terhubung ke SIMWAS">Simulasi · ${esc(lbl)}</span>`;
+  if (x.status === "terkirim") return `<span class="tag ok" title="${esc(x.jenis_audit || "")} · ${esc(x.dikirim_oleh || "")}">Terkirim ${esc(when)} · ${esc(lbl)}</span>`;
+  if (x.status === "gagal") return `<span class="tag bad" title="${esc(x.galat || "")}">Gagal kirim · ${esc(lbl)}</span>`;
+  return `<span class="tag warn" title="Menunggu respons SIMWAS">Dalam antrean · ${esc(lbl)}</span>`;
+}
+
+function petaChart(rows) {
+  const W = 680, H = 470, L = 64, R = 20, T = 20, B = 56, pw = W - L - R, ph = H - T - B;
+  const X = (v) => L + ((v - 1) / 4) * pw, Y = (v) => T + ph - ((v - 1) / 4) * ph;
+  const pts = rows.filter((x) => x.k !== null);
+  const maxS = Math.max(1, ...pts.map((x) => x.skor));
+  const rad = (s) => 9 + 21 * Math.sqrt(s / maxS);
+  let g = `<rect class="qz" x="${X(3)}" y="${Y(5)}" width="${X(5) - X(3)}" height="${Y(3) - Y(5)}"/>`;
+  for (let v = 1; v <= 5; v++) g += `<line class="gl" x1="${X(v)}" x2="${X(v)}" y1="${Y(1)}" y2="${Y(5)}"/><line class="gl" x1="${X(1)}" x2="${X(5)}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${X(v)}" y="${Y(1) + 18}" text-anchor="middle">${v}</text><text x="${X(1) - 10}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`;
+  g += `<line class="ax" x1="${X(3)}" x2="${X(3)}" y1="${Y(1)}" y2="${Y(5)}" stroke-dasharray="5 4"/><line class="ax" x1="${X(1)}" x2="${X(5)}" y1="${Y(3)}" y2="${Y(3)}" stroke-dasharray="5 4"/>`;
+  g += `<text class="ql qp" x="${X(5) - 8}" y="${Y(5) + 18}" text-anchor="end">PRIORITAS AUDIT</text><text class="ql" x="${X(1) + 8}" y="${Y(5) + 18}">Sering terjadi</text><text class="ql" x="${X(5) - 8}" y="${Y(1) - 10}" text-anchor="end">Dampak tinggi</text><text class="ql" x="${X(1) + 8}" y="${Y(1) - 10}">Pemantauan rutin</text>`;
+  g += `<text x="${L + pw / 2}" y="${H - 12}" text-anchor="middle" style="font-weight:600">Dampak kumulatif (D) →</text><text transform="translate(18 ${T + ph / 2}) rotate(-90)" text-anchor="middle" style="font-weight:600">Kemungkinan kumulatif (K) →</text>`;
+  const urut = pts.slice().sort((a, b) => b.skor - a.skor);
+  // lingkaran dulu (besar di bawah), lalu semua label di lapisan teratas agar tidak tertutup gelembung lain
+  urut.forEach((x) => {
+    g += `<g class="bub" tabindex="0" role="button" data-act="petadetail" data-id="${esc(x.id)}" data-tip="${esc(x.id)}" aria-label="${esc(`${x.nama}: ${x.merah} Merah, ${x.kuning} Kuning, skor kumulatif ${x.skor}, K ${fmtKD(x.k)}, D ${fmtKD(x.d)}, ${x.kuadran}`)}"><circle cx="${X(x.d).toFixed(1)}" cy="${Y(x.k).toFixed(1)}" r="${rad(x.skor).toFixed(1)}" fill="var(--lv${x.maxLv || 1})"/></g>`;
+  });
+  urut.forEach((x) => {
+    const cx = X(x.d), cy = Y(x.k), r = rad(x.skor), lab = x.singkatan || x.nama.slice(0, 10), right = cx + r + 6 + lab.length * 7.4 < W - 4;
+    g += `<text class="bl" data-act="petadetail" data-id="${esc(x.id)}" style="cursor:pointer" x="${(right ? cx + r + 5 : cx - r - 5).toFixed(1)}" y="${(cy + 4).toFixed(1)}" text-anchor="${right ? "start" : "end"}">${esc(lab)}</text>`;
+  });
+  return `<svg class="peta-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Peta risiko unit: kemungkinan kumulatif terhadap dampak kumulatif">${g}</svg>`;
+}
+
+function vPeta() {
+  const t = S.f.tahun, valid = !!S.ui.petaValid, urut = S.ui.petaUrut || "warna";
+  if (S.mode === "db") loadPetaStatus(t);
+  const rows = petaSort(petaUnit(t, valid), urut), ada = rows.filter((x) => x.jml), prio = ada.filter((x) => x.kuadran === "Prioritas audit");
+  const opts = `<label>Basis data<select data-peta="valid"><option value="">Seluruh register</option><option value="1" ${valid ? "selected" : ""}>Hanya tervalidasi UMR</option></select></label>
+    <label>Urutkan<select data-peta="urut"><option value="warna">Merah dan Kuning terbanyak</option><option value="skor" ${urut === "skor" ? "selected" : ""}>Skor risiko kumulatif</option></select></label>`;
+  let h = head("Peta Risiko Unit", `Pemetaan risiko residu per unit kerja tahun ${t} dari Register Risiko (Lampiran 4), sebagai dasar prioritas pengawasan dan PKPT berbasis risiko. Level memakai Lampiran ${esc(S.cfg.acuan)}.`,
+    `<div class="row">${filterBar({ tw: false, unit: false }).replace("</div>", opts + "</div>")}<button class="btn" data-act="petacsv">Unduh CSV</button></div>`);
+  if (S.mode === "db" && S.ui.petaRpc === "missing") h += `<div class="banner"><b>Fungsi integrasi belum dipasang.</b> Jalankan <code>05_peta_risiko_unit.sql</code> di Supabase SQL Editor agar tombol Jadikan Prioritas Audit dapat mengirim ke SIMWAS_SPIWN. Peta dan peringkat tetap dapat dipakai.</div>`;
+  if (S.mode === "local") h += `<div class="banner">Mode lokal: tombol <b>Jadikan Prioritas Audit</b> hanya mensimulasikan pengiriman. Pada mode Supabase, profil unit dikirim ke SIMWAS_SPIWN sebagai draf PKPT.</div>`;
+  const sum = (k) => ada.reduce((a, x) => a + x[k], 0), terkirim = Object.values(S.mode === "db" ? S.ui.petaStatus || {} : S.ui.petaLocal || {}).length;
+  h += `<div class="kpis">
+    ${kpi(`${ada.length}/${rows.length}`, "Unit dipetakan", `${rows.length - ada.length} unit belum punya register ${t}`, rows.length - ada.length > 0)}
+    ${kpi(prio.length, "Unit kuadran prioritas", "K dan D kumulatif ≥ 3", prio.length > 0)}
+    ${kpi(sum("merah"), "Risiko Merah", "Sangat Tinggi (20–25)", sum("merah") > 0)}
+    ${kpi(sum("kuning"), "Risiko Kuning", "Tinggi (13–19)")}
+    ${kpi(sum("prio"), "Risiko di atas selera", "Seluruh unit")}
+    ${kpi(terkirim, "Diusulkan ke PKPT", S.mode === "db" ? "Dikirim ke SIMWAS_SPIWN" : "Simulasi mode lokal")}
+  </div>`;
+  if (!ada.length) return h + emptyBox(`Belum ada register risiko tahun ${t}`, "Peta terisi setelah unit kerja mengisi Register Risiko (Lampiran 4). Pilih tahun lain atau ubah basis data menjadi Seluruh register.");
+  h += `<div class="peta-grid"><div class="panel"><div class="row"><h2 style="margin:0">Peta unit: kemungkinan × dampak kumulatif</h2><span class="spacer"></span><span class="small muted">Ukuran gelembung = skor kumulatif · warna = level risiko tertinggi</span></div>${petaChart(rows)}</div>
+    <div class="panel"><h2>Cara membaca</h2><ul class="qlist">
+      <li><i class="p"></i><span><b>Prioritas audit</b> (kanan atas): risiko unit sering terjadi dan berdampak besar. Masukkan ke PKPT.</span></li>
+      <li><i></i><span><b>Dampak tinggi</b> (kanan bawah): jarang tetapi berat. Uji kecukupan pengendalian.</span></li>
+      <li><i></i><span><b>Sering terjadi</b> (kiri atas): sering tetapi ringan. Uji kepatuhan proses.</span></li>
+      <li><i></i><span><b>Pemantauan rutin</b> (kiri bawah): cukup dipantau melalui laporan triwulan.</span></li></ul>
+      <p class="small muted" style="margin:12px 0 6px">Warna level (Perdir 266/2026, Lampiran 3B):</p>
+      <div class="lvchips"><span class="lv lv-1">Rendah 1–6</span><span class="lv lv-2">Sedang 7–12</span><span class="lv lv-3">Tinggi 13–19</span><span class="lv lv-4">Sangat Tinggi 20–25</span></div>
+      <p class="small muted" style="margin:12px 0 0">K dan D kumulatif adalah rata-rata kemungkinan dan dampak residu seluruh risiko unit, ditimbang skor tiap risiko, sehingga risiko besar lebih menentukan posisi unit.</p>
+      ${prio.length ? `<p class="small" style="margin:12px 0 0"><b>Kandidat PKPT:</b> ${prio.map((x) => `<a data-act="petadetail" data-id="${esc(x.id)}" style="cursor:pointer;text-decoration:underline">${esc(x.singkatan || x.nama)}</a>`).join(", ")}</p>` : ""}</div></div>`;
+  h += `<div class="panel"><div class="row"><h2 style="margin:0">Peringkat unit</h2><span class="spacer"></span><span class="small muted">${urut === "skor" ? "Diurutkan menurut skor risiko kumulatif" : "Diurutkan menurut jumlah risiko Merah, lalu Kuning, lalu skor kumulatif"}</span></div>
+    <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th class="num">#</th><th style="min-width:200px">Unit kerja</th><th>Risiko residu per level<br><span class="small muted">Merah · Kuning · Hijau · Biru</span></th><th class="num">Di atas selera</th><th class="num">Skor kumulatif</th><th class="num">K kum.</th><th class="num">D kum.</th><th>Kuadran</th><th class="num">Insiden signifikan</th><th class="num">Temuan terbuka</th><th>KKA terakhir</th><th>Status PKPT</th><th>Aksi</th></tr></thead><tbody>${rows.map((x) => {
+      const isP = x.kuadran === "Prioritas audit" || x.merah > 0;
+      return `<tr class="${isP ? "rowprio" : ""}"><td class="num">${x.rank}</td><td><a data-act="petadetail" data-id="${esc(x.id)}" style="cursor:pointer;font-weight:600">${esc(x.nama)}</a><br><span class="small muted">${x.jml} risiko${valid ? "" : ` · ${x.valid} tervalidasi`}${x.u.pemilik ? " · " + esc(x.u.pemilik) : ""}</span></td>
+        <td><div class="lvchips">${lvCount(4, x.merah)}${lvCount(3, x.kuning)}${lvCount(2, x.hijau)}${lvCount(1, x.biru)}</div></td><td class="num">${x.prio}</td><td class="num"><b>${x.skor}</b></td><td class="num">${fmtKD(x.k)}</td><td class="num">${fmtKD(x.d)}</td>
+        <td><span class="tag ${KUADRAN_TAG[x.kuadran]}">${esc(x.kuadran)}</span></td><td class="num">${x.insiden}</td><td class="num">${x.temuan}</td><td>${x.kka ? `${esc(x.kka.skor)}% · ${fmtDate(x.kka.tgl)}` : `<span class="muted small">Belum</span>`}</td>
+        <td>${petaStatusTag(x.id)}</td><td><div class="acts">${btnA("petadetail", x.id, "Detail")}${x.jml && canAudit() || x.jml && isAppAdmin() ? btnA("petakirim", x.id, "Jadikan Prioritas Audit", { pri: isP }) : ""}</div></td></tr>`;
+    }).join("")}</tbody></table></div>
+    <p class="small muted" style="margin:8px 0 0">Baris bertanda merah di kiri adalah unit di kuadran prioritas audit atau yang memiliki risiko Merah. Klik nama unit atau gelembung untuk melihat Top 5 risiko prioritasnya.</p></div>
+    <div class="peta-tip" id="petaTip" role="tooltip"></div>`;
+  return h;
+}
+function petaRow(id) { return petaSort(petaUnit(S.f.tahun, !!S.ui.petaValid), S.ui.petaUrut || "warna").find((x) => x.id === id); }
+function mini55(row) {
+  const c = {}; row.rs.forEach((x) => { const k = `${x.k}-${x.d}`; c[k] = (c[k] || 0) + 1; });
+  let h = `<table class="mini55" aria-label="Matriks 5×5 risiko residu unit"><tbody>`;
+  for (let k = 5; k >= 1; k--) { h += `<tr><th>${k}</th>`; for (let d = 1; d <= 5; d++) { const n = c[`${k}-${d}`] || 0, i = lvl(k * d).i; h += `<td class="lv-${i}" style="${n ? "" : "opacity:.28"}" title="K${k} × D${d} = ${k * d}: ${n} risiko">${n || ""}</td>`; } h += `</tr>`; }
+  return h + `<tr><th></th>${[1, 2, 3, 4, 5].map((d) => `<th>${d}</th>`).join("")}</tr></tbody></table><div class="small muted" style="margin-top:4px">Baris K (kemungkinan), kolom D (dampak)</div>`;
+}
+function openPetaDetail(id) {
+  const x = petaRow(id); if (!x) return;
+  const top = petaTop(x);
+  const rtpInfo = (rid) => { const t = riskRtps(rid); return t.length ? `${t.length} RTP · ${Math.round(t.reduce((a, [, y]) => a + rtpProgress(y), 0) / t.length)}%` : "Belum ada"; };
+  const body = `<div class="calc" style="margin-bottom:12px"><span><b>${esc(x.nama)}</b>${x.u.pemilik ? ` · ${esc(x.u.pemilik)}` : ""}</span><span class="spacer"></span><span class="tag ${KUADRAN_TAG[x.kuadran]}">${esc(x.kuadran)}</span><span class="tag">Peringkat ${x.rank} dari ${petaUnit(S.f.tahun, !!S.ui.petaValid).length}</span></div>
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start">${mini55(x)}
+    <div>${dlist([["Risiko residu per level", `<div class="lvchips">${lvCount(4, x.merah)}${lvCount(3, x.kuning)}${lvCount(2, x.hijau)}${lvCount(1, x.biru)}</div>`], ["Jumlah risiko", `${x.jml} (${x.valid} tervalidasi UMR)`], ["Di atas selera unit", `${x.prio} risiko (selera ≤ ${seleraMaks(x.id, S.f.tahun)})`], ["Skor kumulatif / tertinggi", `${x.skor} / ${x.maks}`], ["K / D kumulatif", `${fmtKD(x.k)} / ${fmtKD(x.d)}`], ["Insiden signifikan " + S.f.tahun, String(x.insiden)], ["Temuan SPI terbuka", String(x.temuan)], ["KKA terakhir", x.kka ? `${esc(x.kka.skor)}% (${fmtDate(x.kka.tgl)})` : "Belum diaudit dengan KKA"], ["Status PKPT", petaStatusTag(x.id)]])}</div></div>
+    <h3 style="margin-top:14px">Top 5 risiko prioritas</h3>
+    ${top.length ? `<div class="tablewrap"><table><thead><tr><th>#</th><th>Kode</th><th style="min-width:240px">Risiko</th><th>Kategori</th><th>Residu</th><th>Ket.</th><th>Validasi</th><th>RCA</th><th>RTP</th></tr></thead><tbody>${top.map((y, i) => `<tr><td>${i + 1}</td><td>${esc(y.r.kode || "–")}</td><td>${esc(y.r.peristiwa)}${y.r.eskalasi ? ` <span class="tag bad">Dieskalasi</span>` : ""}</td><td>${esc(y.r.kategori || "–")}</td><td>${lvBadge(y.skor, `${y.k}×${y.d} = ${y.skor} ${lvl(y.skor).n}`)}</td><td>${isPrio(y.r) ? `<span class="tag bad">Di atas selera</span>` : `<span class="tag">Dalam selera</span>`}</td><td>${statusTag(y.r.status)}</td><td>${y.r.rca?.tanggal ? `<span class="tag ok">Selesai</span>` : needsRCA(y.r) ? `<span class="tag warn">Belum</span>` : "–"}</td><td class="small">${rtpInfo(y.rid)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">Belum ada risiko.</p>`}`;
+  const links = [{ act: "petareg", id, t: "Buka register unit" }, { act: "petacetak", id, t: "Cetak profil" }];
+  if (x.jml && (canAudit() || isAppAdmin())) links.push({ act: "petakirim", id, t: "Jadikan Prioritas Audit", pri: true });
+  openModal(`Profil risiko unit · ${x.nama} · ${S.f.tahun}`, body, { readOnly: true, wide: true, links });
+}
+function openPetaKirim(id) {
+  const x = petaRow(id); if (!x || !(canAudit() || isAppAdmin())) return;
+  const t = +S.f.tahun, top = petaTop(x), st = S.mode === "db" ? (S.ui.petaStatus || {})[id] : (S.ui.petaLocal || {})[id];
+  const saran = `Prioritas pengawasan berdasarkan Peta Risiko Unit ${t}: ${x.merah} risiko Merah, ${x.kuning} Kuning, skor kumulatif ${x.skor}, kuadran ${x.kuadran.toLowerCase()}.`;
+  const body = `<p class="small muted" style="margin-top:0">Profil risiko unit dan Top 5 risiko prioritasnya dikirim ke SIMWAS_SPIWN sebagai <b>draf rencana audit di PKPT</b>, lalu tampil di kotak usulan integrasi untuk dibahas dan disahkan Kepala SPI. Draf yang sudah diolah di SIMWAS tidak akan ditimpa; hanya profil risikonya yang diperbarui.</p>
+    ${st ? `<div class="banner">Unit ini sudah pernah diusulkan: ${petaStatusTag(id)}. Mengirim lagi akan memperbarui draf yang sama.</div>` : ""}
+    <div class="calc" style="margin-bottom:12px"><span><b>${esc(x.nama)}</b></span><span class="spacer"></span><div class="lvchips">${lvCount(4, x.merah)}${lvCount(3, x.kuning)}${lvCount(2, x.hijau)}${lvCount(1, x.biru)}</div><span class="tag ${KUADRAN_TAG[x.kuadran]}">${esc(x.kuadran)}</span><span class="small">Skor ${x.skor} · K ${fmtKD(x.k)} · D ${fmtKD(x.d)}</span></div>
+    <div class="fg fg2">${fld("tahunPkpt", "Tahun PKPT", t + 1, { type: "select", req: true, opts: [t, t + 1, t + 2].map((y) => [y, String(y)]) })}${fld("jenis", "Jenis pengawasan", x.merah || x.kuadran === "Prioritas audit" ? "Audit Kinerja" : "Reviu", { type: "select", req: true, opts: JENIS_PKPT })}</div>
+    ${fld("catatan", "Catatan untuk tim perencanaan", saran, { type: "textarea" })}
+    <p class="small" style="margin:6px 0 4px"><b>Top 5 risiko yang ikut dikirim:</b></p><ol class="small" style="margin:0;padding-left:20px">${top.map((y) => `<li>${esc(y.r.kode || "")} ${esc(short(y.r.peristiwa, 90))} · ${y.k}×${y.d} = ${y.skor} ${lvl(y.skor).n}</li>`).join("")}</ol>`;
+  openModal("Jadikan prioritas audit (draf PKPT)", body, { buttons: [{ v: "kirim", t: S.mode === "db" ? "Kirim ke SIMWAS_SPIWN" : "Simulasikan pengiriman", pri: true }],
+    onSave: async (v, f) => {
+      if (S.mode !== "db") {
+        S.ui.petaLocal = Object.assign({}, S.ui.petaLocal, { [id]: { status: "lokal", tahun_pkpt: +f.tahunPkpt, jenis_audit: f.jenis, dibuat_pada: new Date().toISOString() } });
+        toast("Mode lokal: pengiriman disimulasikan. Pada mode Supabase, draf PKPT dikirim ke SIMWAS_SPIWN."); render(); return;
+      }
+      const { data, error } = await SB.rpc("kirim_prioritas_audit", { p_unit: id, p_tahun: t, p_tahun_pkpt: +f.tahunPkpt, p_jenis_audit: f.jenis, p_catatan: f.catatan, p_hanya_tervalidasi: !!S.ui.petaValid });
+      if (error) { toast(/function|schema cache|does not exist/i.test(error.message || "") ? "Fungsi integrasi belum dipasang. Jalankan 05_peta_risiko_unit.sql." : error.message || "Gagal mengirim."); return false; }
+      if (data?.status === "gagal") toast(`Tercatat di antrean, tetapi gagal dikirim: ${data.galat || "periksa pengaturan integrasi"}. Sistem akan mencoba ulang otomatis.`);
+      else toast(`Profil ${x.nama} dikirim ke SIMWAS_SPIWN sebagai draf PKPT ${f.tahunPkpt}.`);
+      await loadPetaStatus(t, true);
+      setTimeout(() => S.view === "peta" && loadPetaStatus(t, true), 4000);
+    } });
+}
+function csvPeta() {
+  const t = S.f.tahun, rows = petaSort(petaUnit(t, !!S.ui.petaValid), S.ui.petaUrut || "warna");
+  const hd = ["Peringkat", "Unit kerja", "Singkatan", "Pemilik risiko", "Jumlah risiko", "Tervalidasi", "Merah", "Kuning", "Hijau", "Biru", "Di atas selera", "Skor kumulatif", "Skor tertinggi", "K kumulatif", "D kumulatif", "Kuadran", "Insiden signifikan", "Temuan SPI terbuka", "Skor KKA terakhir", "Top 5 risiko"];
+  const body = rows.map((x) => [x.rank, x.nama, x.singkatan, x.u.pemilik, x.jml, x.valid, x.merah, x.kuning, x.hijau, x.biru, x.prio, x.skor, x.maks, x.k ?? "", x.d ?? "", x.kuadran, x.insiden, x.temuan, x.kka?.skor ?? "", petaTop(x).map((y) => `${y.r.kode || ""} (${y.skor})`).join("; ")]);
+  saveFile(`Peta_Risiko_Unit_${t}${S.ui.petaValid ? "_tervalidasi" : ""}.csv`, "﻿" + [hd, ...body].map((r) => r.map(csvCell).join(",")).join("\n"));
+}
+function cetakPeta(id) {
+  const x = petaRow(id); if (!x) return;
+  const top = petaTop(x), t = S.f.tahun;
+  const html = printShell(`Profil risiko ${x.nama} ${t}`, `<h1>PROFIL RISIKO UNIT KERJA</h1><p class="sub">Bahan penyusunan PKPT berbasis risiko · Tahun data ${t}</p>
+    <table class="id"><tr><td>Unit kerja</td><td>: ${esc(x.nama)}</td></tr><tr><td>Pemilik risiko</td><td>: ${esc(x.u.pemilik || "–")}</td></tr><tr><td>Peringkat</td><td>: ${x.rank} (${S.ui.petaUrut === "skor" ? "skor kumulatif" : "jumlah Merah dan Kuning"})</td></tr><tr><td>Kuadran</td><td>: ${esc(x.kuadran)}</td></tr></table>
+    <h2>A. Ringkasan</h2><table><tr><th>Jumlah risiko</th><th>Merah</th><th>Kuning</th><th>Hijau</th><th>Biru</th><th>Di atas selera</th><th>Skor kumulatif</th><th>K kumulatif</th><th>D kumulatif</th><th>Insiden signifikan</th><th>Temuan terbuka</th></tr><tr><td>${x.jml}</td><td>${x.merah}</td><td>${x.kuning}</td><td>${x.hijau}</td><td>${x.biru}</td><td>${x.prio}</td><td>${x.skor}</td><td>${fmtKD(x.k)}</td><td>${fmtKD(x.d)}</td><td>${x.insiden}</td><td>${x.temuan}</td></tr></table>
+    <h2>B. Top 5 risiko prioritas</h2><table><tr><th>No</th><th>Kode</th><th>Risiko</th><th>Kategori</th><th>K × D residu</th><th>Level</th><th>Status</th></tr>${top.map((y, i) => `<tr><td>${i + 1}</td><td>${esc(y.r.kode || "")}</td><td>${esc(y.r.peristiwa)}</td><td>${esc(y.r.kategori || "")}</td><td>${y.k} × ${y.d} = ${y.skor}</td><td>${lvl(y.skor).n}</td><td>${esc(y.r.status || "")}</td></tr>`).join("")}</table>
+    <div class="ttd"><div></div><div></div><div>Semarang, ${fmtDate(new Date().toISOString())}<br>Kepala SPI<br><br><br><br>(………………………………)</div></div>`);
+  printHtml(html, `Profil_Risiko_${(x.singkatan || x.nama).replace(/[^\w-]+/g, "_")}_${t}.html`);
+}
+/* Tooltip peta */
+document.addEventListener("mouseover", (e) => {
+  const g = e.target.closest && e.target.closest("[data-tip]"), tip = $("#petaTip"); if (!tip) return;
+  if (!g) { tip.style.display = "none"; return; }
+  const x = petaRow(g.dataset.tip); if (!x) return;
+  tip.innerHTML = `<b>${esc(x.nama)}</b><div class="lvchips" style="margin-bottom:6px">${lvCount(4, x.merah)}${lvCount(3, x.kuning)}${lvCount(2, x.hijau)}${lvCount(1, x.biru)}</div>Skor kumulatif <b style="display:inline">${x.skor}</b> · ${x.jml} risiko<br>K ${fmtKD(x.k)} · D ${fmtKD(x.d)} · ${esc(x.kuadran)}<br><span class="muted small">Klik untuk Top 5 risiko</span>`;
+  tip.style.display = "block";
+});
+document.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches(".bub[data-act]")) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent("click", { bubbles: true })); } });
+document.addEventListener("mousemove", (e) => { const tip = $("#petaTip"); if (tip && tip.style.display === "block") { tip.style.left = Math.min(innerWidth - 300, e.clientX + 14) + "px"; tip.style.top = e.clientY + 14 + "px"; } });
+
 /* ========== VIEW: SPI (Lini 3) ========== */
 function vSPI() {
   const tab = S.ui.spiTab || "ringkasan";
@@ -1436,6 +1655,7 @@ function vGuide() {
     ["Konfirmasi pengajuan akun", `<p>Pengajuan akun baru tampil di bagian atas ${M("Dasbor pemantauan", "Pengajuan akun")}, dengan angka merah di menu Dasbor. Periksa nama, email, peran, dan unit pemohon, lalu pilih <b>Setujui</b> atau <b>Tolak</b>. Penolakan wajib disertai alasan (dapat dipilih dari daftar). Pemohon langsung melihat keputusan dan alasannya di dasbornya, lalu dapat memperbaiki dan mengajukan ulang. Bila peran atau unit yang diajukan keliru, pilih <b>Ubah lalu setujui</b>. Keputusan 30 hari terakhir dapat dilihat di panel yang sama dan tercatat di Jejak audit.</p>`],
     ["Kelola pengguna dan unit", `<p>${M("Pengaturan")}: setujui atau cabut peran pengguna, tambah dan ubah unit kerja, dan tetapkan acuan penilaian (Lampiran 3A/3B serta selera bawaan).</p>`],
     ["Nilai kepatuhan proses", `<p>${M("Pengawasan SPI")}: matriks indeks kepatuhan per unit dengan 10 kriteria, termasuk implementasi RTP. Gunakan matriks ini untuk memilih unit yang perlu direviu lebih dalam.</p>`],
+    ["Peta Risiko Unit dan PKPT berbasis risiko", `<p>${M("Peta Risiko Unit")} memetakan setiap unit kerja menurut kemungkinan dan dampak kumulatif risiko residunya. Unit di kuadran kanan atas (K dan D kumulatif ≥ 3) menjadi <b>prioritas audit</b>. Tabel peringkat mengurutkan unit menurut jumlah risiko Merah dan Kuning, atau menurut skor kumulatif. Klik unit untuk melihat Top 5 risiko prioritasnya. Tombol <b>Jadikan Prioritas Audit</b> mengirim profil risiko unit ke SIMWAS_SPIWN sebagai draf rencana audit di PKPT, dan statusnya tampil di kolom Status PKPT.</p>`],
     ["Audit dengan kriteria dan KKA", `<p>${M("Pengawasan SPI", "Kriteria audit")} berisi 40 kriteria berdasarkan pasal Perdir 266/2026: 11 kriteria tata kelola rumah sakit, 22 kriteria unit kerja (Lini 1), dan 7 kriteria UMR (Lini 2). Formulir kosong dapat dicetak untuk pemeriksaan lapangan.</p><p>${M("Kertas kerja audit (KKA)", "Buat KKA")}: pilih sasaran audit. Hasil pemeriksaan sistem terisi otomatis beserta saran nilai. Auditor menetapkan penilaian (Sesuai, Sebagian sesuai, Tidak sesuai, Tidak berlaku), bukti yang diperiksa, dan catatan. Skor dan predikat dihitung otomatis. Simpan sebagai <b>final</b>, lalu <b>Cetak formulir</b> untuk ditandatangani. Dari tombol <b>Lihat</b>, kriteria yang belum sesuai dapat langsung <b>dijadikan temuan</b>.</p>`],
     ["Catat temuan", `<p>${M("Pengawasan SPI", "Catat temuan")}. Templat berisi:</p><ol><li>Identitas: unit, aspek, risiko terkait, prioritas, dan batas waktu.</li><li><b>Kondisi</b>, <b>kriteria</b> (pasal acuan), <b>sebab</b>, <b>akibat</b>, dan <b>rekomendasi</b>.</li></ol>`],
     ["Verifikasi tindak lanjut", `<p>Setelah unit menanggapi, status menjadi <b>Menunggu verifikasi</b>. Pilih <b>Verifikasi</b>, isi tanggal, hasil (Memadai atau Belum memadai), dan catatan. Temuan hanya dapat ditutup (<b>Selesai</b>) bila hasilnya Memadai.</p>`],
@@ -1517,7 +1737,7 @@ function doRender() {
   if (!canView(S.view)) S.view = allowedViews()[0];
   renderNav();
   if (S.view !== "jejak") S.ui.jejak = null;
-  const V = { temuan: vTemuan, validasi: vValidasi, impl: vImpl, jejak: vJejak, dashboard: vDashboard, konteks: vKonteks, register: vRegister, rca: vRCA, rtp: vRTP, events: vEvents, reports: vReports, spi: vSPI, guide: vGuide, settings: vSettings };
+  const V = { temuan: vTemuan, validasi: vValidasi, impl: vImpl, jejak: vJejak, dashboard: vDashboard, konteks: vKonteks, register: vRegister, rca: vRCA, rtp: vRTP, events: vEvents, reports: vReports, peta: vPeta, spi: vSPI, guide: vGuide, settings: vSettings };
   const sy = window.scrollY;
   m.innerHTML = pre + (V[S.view] || vDashboard)();
   window.scrollTo(0, sy);
@@ -2710,6 +2930,8 @@ const ACT = {
   password: () => openPassword(false),
   authmode: (d) => { S.ui.auth = d.m; S.ui.authMsg = null; render(); },
   review: (d) => openReview(d.id, d.f),
+  petadetail: (d) => openPetaDetail(d.id), petakirim: (d) => openPetaKirim(d.id), petacsv: () => csvPeta(), petacetak: (d) => cetakPeta(d.id),
+  petareg: (d) => { $("#dlg").close(); S.f.unit = d.id; S.view = "register"; render(); },
   reviewedit: (d) => openRole(d.id),
   approverole: async (d) => { const q = S.members[d.id]; if (!q?.role || !canApprove()) return; await put("roles", d.id, { role: q.role, unitId: q.role === "L1" ? q.unitId || "" : "", jabatan: q.jabatan || "", nama: q.nama || "", email: q.email || "", approvedBy: S.me.id, approvedAt: new Date().toISOString() }); toast("Peran disetujui."); },
   revokerole: async (d) => { if (!canApprove() || !confirm(`Cabut peran ${personName(d.id)}? Pengguna hanya dapat membuka Panduan sampai peran ditetapkan lagi.`)) return; await del("roles", d.id); toast("Peran dicabut."); },
@@ -2737,6 +2959,7 @@ document.addEventListener("click", (e) => {
 document.addEventListener("change", (e) => {
   const t = e.target;
   if (t.dataset.filter) { S.f[t.dataset.filter] = t.dataset.filter === "unit" ? t.value : +t.value; render(); return; }
+  if (t.dataset.peta) { if (t.dataset.peta === "valid") S.ui.petaValid = !!t.value; else S.ui.petaUrut = t.value; render(); return; }
   if (t.dataset.act === "regstatus") { S.reg.status = t.value; render(); }
   if (t.dataset.act === "regprio") { S.reg.prio = t.checked; render(); }
   if (t.dataset.act === "jejaktabel") { S.ui.jejakT = t.value; S.ui.jejak = null; render(); }
